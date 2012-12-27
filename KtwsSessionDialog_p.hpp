@@ -1,6 +1,7 @@
 #ifndef KTWORKSPACESESSIONDIALOG_HPP
 #define KTWORKSPACESESSIONDIALOG_HPP
 
+#include "KtWorkspaceAppGlobal.hpp"
 #include "KtWorkspaceApp.hpp"
 
 #include <QDialog>
