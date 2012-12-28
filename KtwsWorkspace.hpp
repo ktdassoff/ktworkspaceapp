@@ -28,7 +28,7 @@ class KTWORKSPACEAPP_EXPORT Workspace : public QObject {
     Q_ENUMS(SessionStatus DefaultAction)
 
 public:
-    explicit Workspace(const QString &app_name);
+    explicit Workspace(QObject *parent = nullptr);
     virtual ~Workspace();
 
     QString appName();
@@ -76,8 +76,7 @@ public:
     enum DefaultAction {
         AboutDefaultAction,
         QuitDefaultAction,
-        SessionsDefaultAction,
-        WorksheetsDefaultAction
+        SessionsDefaultAction
     };
     QAction *defaultAction(DefaultAction da);
 
@@ -96,7 +95,7 @@ public:
 public slots:
     void requestQuit();
     void sessionsDialog();
-    void worksheetsDialog();
+    void aboutDialog();
 
 signals:
     // Session management and settings

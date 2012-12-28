@@ -1,13 +1,60 @@
-// #include "KtWorkspaceApp.hpp"
-// #include "KtWorkspaceAppImpl.hpp"
-// #include "KtWorksheet.hpp"
-// #include "KtWorkspaceSessionDialog.hpp"
-//
-// #include <QDesktopServices>
+#include "KtwsWorkspace.hpp"
+#include "KtwsWorkspace_p.hpp"
+
+#include <QDesktopServices>
+#include <QCoreApplication>
+#include <QDateTime>
+
+namespace Ktws {
+Workspace::Workspace(QObject *parent)
+    : QObject(parent), d(new WorkspaceImpl)
+{
+    // Default actions
+    d->m_da_about = new QAction(tr("About %1").arg(QCoreApplication::applicationName()), this);
+    d->m_da_about->setMenuRole(QAction::AboutRole);
+    connect(d->m_da_about, SIGNAL(triggered(bool)), this, SLOT(aboutDialog()));
+    d->m_da_quit = new QAction(tr("&Quit"), this);
+    d->m_da_quit->setMenuRole(QAction::QuitRole);
+    d->m_da_quit->setShortcutContext(Qt::ApplicationShortcut);
+    d->m_da_quit->setShortcut(QKeySequence::Quit);
+    connect(d->m_da_quit, SIGNAL(triggered(bool)), this, SLOT(requestQuit()));
+    d->m_da_sessions = new QAction(tr("&Sessions..."), this);
+    d->m_da_sessions->setMenuRole(QAction::ApplicationSpecificRole);
+    d->m_da_sessions->setShortcutContext(Qt::ApplicationShortcut);
+    d->m_da_sessions->setShortcut(QKeySequence(Qt::ControlModifier | Qt::AltModifier | Qt::Key_Semicolon));
+    connect(d->m_da_sessions, SIGNAL(triggered(bool)), this, SLOT(sessionsDialog()));
+
+    // Add default actions to global actions
+    d->m_global_actions.append(d->m_da_sessions);
+    QAction *sep = new QAction(this);
+    sep->setSeparator(true);
+    d->m_global_actions.append(sep);
+    d->m_global_actions.append(d->m_da_about);
+    d->m_global_actions.append(d->m_da_quit);
+
+    // Initialize session table
+    // TODO
+}
+Workspace::~Workspace() { delete d; }
+
+//// Public methods ////
+// Session management
+Workspace::SessionStatus Workspace::sessionStatus() const { return d->m_session_status; }
+
+int Workspace::sessionCount() const { return d->m_session_table.count(); }
+QList<Session *> Workspace::sessions() const { return d->m_session_table.values(); }
+Session *Workspace::currentSession() const { return d->m_session_table.value(d->m_cur_session_id, nullptr); }
+Session *Workspace::lastUsedSession() const {
+    QDateTime mdt;
+
+    foreach(Session *chks, d->m_session_table) {
+        // TODO
+    }
+} // namespace Ktws
+
 // #include <QMessageBox>
 // #include <QDir>
 // #include <QDebug>
-// #include <stdexcept>
 //
 // KtWorkspaceApp::KtWorkspaceApp(int &argc, char **argv, bool single_instance, const QString &appName, const QString &appVer, const QString &orgName, const QString &orgDomain, const QIcon &appIcon,
 //                                const QHash<QString, KtWorkspaceWorksheetHandler *> &worksheet_handlers, const QStringList &default_worksheet_class)
