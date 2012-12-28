@@ -12,13 +12,12 @@ class QDateTime;
 namespace Ktws {
 class Workspace;
 
-class SessionImpl;
+struct SessionImpl;
 class KTWORKSPACEAPP_EXPORT Session : public QObject {
     Q_OBJECT
     Q_DISABLE_COPY(Session)
 
     SessionImpl *d;
-    friend class SessionImpl;
 
     Session(const QUuid &id, Workspace *wspace, QObject *parent = nullptr);
 
@@ -44,7 +43,7 @@ public:
     bool isCurrent() const;
     bool isLastUsed() const;
 
-    bool clone(QString new_name);
+    SessionId clone(QString new_name);
     bool remove();
     bool switchTo();
 

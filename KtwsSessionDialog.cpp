@@ -1,4 +1,4 @@
-#include "KtWorkspaceSessionDialog.hpp"
+#include "KtwsSessionDialog_p.hpp"
 
 #include <QBoxLayout>
 #include <QDialogButtonBox>
@@ -120,7 +120,7 @@ KtWorkspaceSessionDialog::KtWorkspaceSessionDialog(KtWorkspaceApp *app, QWidget 
                 break;
             }
         }
-        
+
         QDialogButtonBox * dbb = new QDialogButtonBox(Qt::Horizontal, this);
         dbb->addButton(m_btn_switch, QDialogButtonBox::AcceptRole);
         dbb->addButton(m_btn_reject, QDialogButtonBox::RejectRole);
