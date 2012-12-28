@@ -6,19 +6,15 @@
 #include <QList>
 #include <QWeakPointer>
 #include <QVariant>
-class QUuid;
+struct QUuid;
 class QIcon;
 class QAction;
 
 namespace Ktws {
 class Session;
-typedef QWeakPointer<Session> SessionRef;
-typedef QUuid SessionId;
 struct SessionInfo;
 class WorksheetHandler;
 class Worksheet;
-typedef QUuid WorksheetId;
-typedef QWeakPointer<Worksheet> WorksheetRef;
 
 class WorkspaceImpl;
 class KTWORKSPACEAPP_EXPORT Workspace : public QObject {
@@ -51,11 +47,12 @@ public:
     bool isSessionRunning() const { return sessionStatus() == SessionRunning; }
 
     int sessionCount() const;
-    QList<SessionRef> sessions() const;
-    SessionRef currentSession() const;
-    SessionRef sessionById(const SessionId &id);
-    SessionRef sessionByName(const QString &name);
-    SessionRef createSession(const QString &new_name);
+    QList<Session *> sessions() const;
+    Session *currentSession() const;
+    Session *lastUsedSession() const;
+    Session *sessionById(const QUuid &id);
+    Session *sessionByName(const QString &name);
+    Session *createSession(const QString &new_name);
 
     // Settings and data
     QVariantHash &globalSettings();
@@ -86,9 +83,9 @@ public:
 
     // Worksheet management
     int worksheetCount() const;
-    QList<WorksheetRef> worksheets() const;
-    WorksheetRef worksheetById(const WorksheetId &id);
-    WorksheetRef createWorksheet(const QString &class_name);
+    QList<Worksheet *> worksheets() const;
+    Worksheet *worksheetById(const QUuid &id);
+    Worksheet *createWorksheet(const QString &class_name);
 
     int worksheetHandlerCount() const;
     QList<QString> worksheetHandlerClassNames() const;
@@ -114,13 +111,18 @@ signals:
 private:
 	// Sessions
 	QUuid currentSessionId() const;
-    bool selectSession(const SessionId &id);
-    SessionId mkSession(const QString &new_name, const SessionId &clone_src);
+    QUuid lastUsedSessionId() const;
+    bool existsSession(const QUuid &id);
+    bool selectSession(const QUuid &id);
+    QUuid mkSession(const QString &new_name, const QUuid &clone_src);
     bool rmSession(const QUuid &id);
-    bool renameSession(const QString &new_name, const SessionId &id);
+    bool renameSession(const QString &new_name, const QUuid &id);
 
     // Data
     QString baseDataDir() const;
+    QString curSessionDataDir() const;
+    QVariantHash &curSessionSettings();
+    void replaceCurSessionSettings(const QVariantHash &settings);
 
     bool deserializeGlobalSettings();
     bool serializeGlobalSettings();
@@ -133,8 +135,8 @@ private:
 
     // Worksheets/helpers
     Worksheet *attachWorksheetHelper(const QString &class_name, const QUuid &id);
-    void detachWorksheetHelper(const WorksheetId &id, bool rm_saved);
-    void handleWorksheetClose(const WorksheetId &id);
+    void detachWorksheetHelper(const QUuid &id, bool rm_saved);
+    void handleWorksheetClose(const QUuid &id);
 };
 } // namespace Ktws
 

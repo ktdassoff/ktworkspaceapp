@@ -31,13 +31,13 @@ configure_file(
 include_directories(${PROJECT_BINARY_DIR})
 
 set(SHLIBNAME Kt${QV}WorkspaceApp${PROJECT_VER_MAJOR})
-set(SOURCES "KtwsWorksheet.cpp" "KtwsWorkspace.cpp" "KtwsSessionDialog.cpp")
-set(HEADERS "KtwsWorksheet.hpp" "KtwsWorkspace.hpp" "KtwsGlobal.hpp")
-set(PRIV_HDRS "KtwsWorksheet_p.hpp" "KtwsWorkspace_p.hpp" "KtwsSessionDialog_p.hpp")
+set(SOURCES "KtwsWorksheet.cpp" "KtwsWorkspace.cpp" "KtwsSession.cpp" "KtwsSessionDialog.cpp")
+set(HEADERS "KtwsWorksheet.hpp" "KtwsWorkspace.hpp" "KtwsSession.hpp" "KtwsGlobal.hpp")
+set(PRIV_HDRS "KtwsWorksheet_p.hpp" "KtwsWorkspace_p.hpp" "KtwsSession_p.hpp" "KtwsSessionDialog_p.hpp")
 add_library(${SHLIBNAME} SHARED ${SOURCES} ${HEADERS} ${PRIV_HDRS})
 set_target_properties(${SHLIBNAME} PROPERTIES
     VERSION ${PROJECT_VERSION})
-set_property(TARGET ${SHLIBNAME} APPEND_STRING PROPERTY COMPILE_DEFINTIONS "KTWORKSPACEAPP_LIBRARY")
+set_property(TARGET ${SHLIBNAME} APPEND PROPERTY COMPILE_DEFINITIONS "KTWORKSPACEAPP_LIBRARY")
 target_link_libraries(${SHLIBNAME} ${QT_QTCORE_LIBRARY} ${QT_QTGUI_LIBRARY})
 install(TARGETS ${SHLIBNAME}
     LIBRARY DESTINATION lib/

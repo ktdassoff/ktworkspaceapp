@@ -2,12 +2,13 @@
 #define KTWSSESSION_HPP_
 
 #include <KtwsGlobal.hpp>
+#include "KtwsWorkspace.hpp"
 
 #include <QObject>
 #include <QString>
+#include <QUuid>
 #include <QVariant>
-class QUuid;
-class QDateTime;
+#include <QDateTime>
 
 namespace Ktws {
 class Workspace;
@@ -18,15 +19,9 @@ class KTWORKSPACEAPP_EXPORT Session : public QObject {
     Q_DISABLE_COPY(Session)
 
     SessionImpl *d;
+    friend class Workspace;
 
     Session(const QUuid &id, Workspace *wspace, QObject *parent = nullptr);
-
-    Q_PROPERTY(QUuid id READ id CONSTANT)
-    Q_PROPERTY(QString name READ name WRITE setName NOTIFY nameChanged USER true)
-    Q_PROPERTY(QDateTime lastUsedTimestamp READ lastUsedTimestamp)
-    Q_PROPERTY(bool exists READ exists STORED false)
-    Q_PROPERTY(bool current READ isCurrent NOTIFY currentChanged STORED false)
-    Q_PROPERTY(bool lastUsed READ isLastUsed STORED false)
 
 public:
     virtual ~Session();
@@ -34,7 +29,7 @@ public:
     QUuid id() const;
 
     QString name() const;
-    bool setName(QString name);
+    bool setName(const QString &name);
 
     QDateTime lastUsedTimestamp() const;
 
@@ -43,22 +38,15 @@ public:
     bool isCurrent() const;
     bool isLastUsed() const;
 
-    SessionId clone(QString new_name);
+    Session *clone(const QString &new_name) const;
     bool remove();
     bool switchTo();
 
+    // Functional only if isCurrent() == true
     QVariantHash &settings();
     const QVariantHash &settings() const;
     void replaceSettings(const QVariantHash &settings);
     QString dataDir() const;
-
-    static bool isValidSessionName(QString name);
-
-signals:
-    void nameChanged(QString name);
-    void currentChanged(bool isCurrent);
-    void cloned(QString new_name);
-    void removed();
 };
 } // namespace Ktws
 

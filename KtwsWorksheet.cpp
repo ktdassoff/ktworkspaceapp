@@ -30,7 +30,7 @@ QString Worksheet::className() const { return d->m_class_name; }
 QUuid Worksheet::id() const { return d->m_wsheet_id; }
 
 Workspace *Worksheet::workspace() const { return d->m_wspace; }
-SessionRef Worksheet::session() const {
+Session *Worksheet::session() const {
 	return d->m_wspace->sessionById(d->m_session_id);
 }
 

@@ -6,8 +6,7 @@
 
 #include <QMainWindow>
 #include <QVariant>
-class QString;
-class QUuid;
+#include <QUuid>
 
 namespace Ktws {
 struct WorksheetImpl;
@@ -33,7 +32,7 @@ public slots:
 
 protected:
 	Workspace *workspace() const;
-	SessionRef session() const;
+	Session *session() const;
 
     QVariantHash &settings();
     const QVariantHash &settings() const;

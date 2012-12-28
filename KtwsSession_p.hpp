@@ -13,6 +13,7 @@ struct SessionImpl {
     QUuid m_id;
     QString m_name;
     QDateTime m_timestamp;
+    QVariantHash m_settings;
 };
 } // namespace Ktws
 
