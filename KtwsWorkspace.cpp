@@ -1,13 +1,23 @@
 #include "KtwsWorkspace.hpp"
 #include "KtwsWorkspace_p.hpp"
+#include "KtwsSession.hpp"
+#include "KtwsSessionDialog.hpp"
+#include "KtwsSerialization_p.hpp"
+#include "KtwsWorksheetHandler.hpp"
+#include "KtwsWorksheet.hpp"
 
 #include <QDesktopServices>
-#include <QCoreApplication>
+#include <QApplication>
 #include <QDateTime>
+#include <QDir>
+#include <QMessageBox>
+#include <QDebug>
 
 namespace Ktws {
-Workspace::Workspace(QObject *parent)
-    : QObject(parent), d(new WorkspaceImpl)
+const char *S_GLOBAL_DIR_CMPNT = "global";
+
+Workspace::Workspace(const QString &app_id, QObject *parent)
+    : QObject(parent), d(new WorkspaceImpl(app_id))
 {
     // Default actions
     d->m_da_about = new QAction(tr("About %1").arg(QCoreApplication::applicationName()), this);
@@ -33,9 +43,15 @@ Workspace::Workspace(QObject *parent)
     d->m_global_actions.append(d->m_da_quit);
 
     // Initialize session table
-    // TODO
+    QList<SessionMd> scanned = scanSessions(d->m_app_id);
+    foreach(const SessionMd &smd, scanned) {
+        Session *ns = new Session(smd.id, this, this);
+        ns->setName(smd.name);
+        ns->setLastUsedTimestamp(smd.timestamp);
+    }
 }
 Workspace::~Workspace() { delete d; }
+QString Workspace::appId() const { return d->m_app_id; }
 
 //// Public methods ////
 // Session management
@@ -46,452 +62,231 @@ QList<Session *> Workspace::sessions() const { return d->m_session_table.values(
 Session *Workspace::currentSession() const { return d->m_session_table.value(d->m_cur_session_id, nullptr); }
 Session *Workspace::lastUsedSession() const {
     QDateTime mdt;
+    Session *ret = nullptr;
 
     foreach(Session *chks, d->m_session_table) {
-        // TODO
+        if(chks->lastUsedTimestamp().isValid() && (chks->lastUsedTimestamp() > mdt || mdt.isNull())) {
+            mdt = chks->lastUsedTimestamp();
+            ret = chks;
+        }
     }
-} // namespace Ktws
+    return ret;
+}
 
-// #include <QMessageBox>
-// #include <QDir>
-// #include <QDebug>
-//
-// KtWorkspaceApp::KtWorkspaceApp(int &argc, char **argv, bool single_instance, const QString &appName, const QString &appVer, const QString &orgName, const QString &orgDomain, const QIcon &appIcon,
-//                                const QHash<QString, KtWorkspaceWorksheetHandler *> &worksheet_handlers, const QStringList &default_worksheet_class)
-//     : QApplication(argc, argv), self(new KtWorkspaceAppImpl) {
-//         if(s_instance) {
-//             delete self;
-//             throw std::logic_error("Constructing a KtWorkspaceApp when an instance already exists!");
-//         } else s_instance = this;
-//         setApplicationName(appName);
-//         setApplicationVersion(appVer);
-//         setOrganizationName(orgName);
-//         if(!orgDomain.isEmpty()) setOrganizationDomain(orgDomain);
-//         setApplicationIcon(appIcon);
-//
-//
-//         // Determine session root
-//         self->computed_datadir_path = QDesktopServices::storageLocation(QDesktopServices::DataLocation);
-//         QDir dr(self->computed_datadir_path);
-//         if(!dr.exists()) dr.mkpath(".");
-//
-//         // Initial handler registrations
-//         for(auto itr = worksheet_handlers.constBegin(); itr != worksheet_handlers.constEnd(); itr++) registerWorksheetHandler(itr.key(), itr.value());
-//         self->default_worksheet_class = default_worksheet_class;
-// }
-//
-// bool KtWorkspaceApp::initApp() {
-//     if(self->already_running) return false;
-//
-//     // Restore last session or ask for a session
-//     // If no sessions exist, create a new one called "Default" and load that
-//     if(allSessions().isEmpty()) {
-//         if(!createSession("Default")) {
-//             QMessageBox::critical(0, applicationName(), "Unable to create an initial session!");
-//             return false;
-//         } else selectSession("Default");
-//     } else {
-//         auto gcfg = getGlobalSettings();
-//         QString lus = gcfg->value("kt_last_used_session").toString();
-//         if(!existsSession(lus)) {
-//             KtWorkspaceSessionDialog sdlg;
-//             int rc = sdlg.exec();
-//             if(rc == QDialog::Rejected || self->cur_session.isEmpty()) return false;
-//         } else selectSession(lus);
-//     }
-//
-//     // Set up global menus/actions/shell elements (e.g. tray icon)
-//     self->tray_icon = new QSystemTrayIcon;
-//     if(self->user_status.isEmpty()) self->tray_icon->setToolTip(applicationName());
-//     else self->tray_icon->setToolTip(applicationName() + ": " + self->user_status);
-//     self->tray_icon->setIcon(self->app_icon);
-//     self->global_menu = new QMenu(applicationName());
-//     self->tray_icon->setContextMenu(self->global_menu);
-//
-//
-//     self->top_sep = self->global_menu->addSeparator();
-//     self->se_action = self->global_menu->addAction(tr("Manage sessions..."), this, SLOT(sessionsDialog()));
-//     self->global_menu->addSeparator();
-//     QAction * a = self->global_menu->addAction(tr("About %1...").arg(applicationName()), this, SLOT(onAbout()));
-//     a->setMenuRole(QAction::AboutRole);
-//     self->p_action = self->global_menu->addAction(tr("Preferences..."), this, SLOT(onPrefs()));
-//     self->p_action->setMenuRole(QAction::PreferencesRole);
-//     self->p_action->setVisible(false);
-//     a = self->global_menu->addAction(tr("&Quit"), this, SLOT(requestQuit()));
-//     a->setMenuRole(QAction::QuitRole);
-//
-//     self->tray_icon->show();
-//
-//     return true;
-// }
-//
-// KtWorkspaceApp::~KtWorkspaceApp() {
-//     if(!self->cur_session.isEmpty() && !self->already_running) selectSession();
-//     delete self;
-//     s_instance = 0;
-// }
-//
-// QIcon KtWorkspaceApp::applicationIcon() const { return self->app_icon; }
-// void KtWorkspaceApp::setApplicationIcon(const QIcon & val) {
-//     self->app_icon = val;
-// }
-//
-// bool KtWorkspaceApp::notify(QObject *receiver, QEvent *event) {
-//     try {
-//         return QApplication::notify(receiver, event);
-//     } catch (const std::exception & e) {
-//         QMessageBox::critical(nullptr, applicationName(), QString("Fatal exception has arisen: %1;\nIn event: %2 to %3 \"%4\"")
-//                                 .arg(e.what()).arg(event->type()).arg(receiver->metaObject()->className()).arg(receiver->objectName()));
-//         exit(-2);
-//         return false;
-//     }
-// }
-//
-// bool KtWorkspaceApp::instanceAlreadyRunning() const { return self->already_running; }
-//
-// // Session management and settings
-// KtWorkspaceApp::SessionStatus KtWorkspaceApp::sessionStatus() const { return self->session_status; }
-// QString KtWorkspaceApp::currentSession() const { return self->cur_session; }
-//
-// bool KtWorkspaceApp::selectSession(const QString &name) {
-//     if(!name.isEmpty() && !existsSession(name)) return false;
-//     else {
-//         if(!self->cur_session.isEmpty()) {
-//             self->session_status = SessionEnding;
-//             emit sessionAboutToEnd(self->cur_session);
-//             while(!self->worksheets.isEmpty()) detachWorksheetHelper(*self->worksheets.begin(), false, false);
-//             QString olds = self->cur_session;
-//             self->cur_session.clear();
-//             self->session_status = SessionNone;
-//             emit sessionEnded(olds);
-//         }
-//         if(!name.isEmpty()) {
-//             if(!isValidSessionName(name)) return false;
-//             self->session_status = SessionStarting;
-//             emit sessionAboutToStart(name);
-//             self->cur_session = name;
-//             auto gcfg = getGlobalSettings();
-//             gcfg->setValue("kt_last_used_session", name);
-//             auto savws = allSavedWorksheets();
-//             if(savws.isEmpty()) {
-//                 foreach(auto d, self->default_worksheet_class) attachWorksheetHelper(d, QUuid::createUuid(), true);
-//             } else foreach(const SavedWs & ws, savws) attachWorksheetHelper(ws.second, ws.first, false);
-//             self->session_status = SessionRunning;
-//             emit sessionStarted(name);
-//         }
-//         return true;
-//     }
-// }
-//
-// QStringList KtWorkspaceApp::allSessions() const {
-//     QDir dr(self->computed_datadir_path);
-//     QFileInfoList entries = dr.entryInfoList(QStringList() << "session_*", QDir::Dirs | QDir::NoDotAndDotDot, QDir::Name);
-//     QStringList sl;
-//     foreach(const QFileInfo & e, entries) {
-//         if(isValidSessionName(e.fileName())) sl << e.fileName().remove("session_");
-//     }
-//     return sl;
-// }
-//
-// bool KtWorkspaceApp::existsSession(const QString &name) {
-//     if(!isValidSessionName(name)) return false;
-//     else {
-//         QDir dr(self->computed_datadir_path);
-//         return dr.exists(QString("session_") += name);
-//     }
-// }
-//
-// bool KtWorkspaceApp::renameSession(const QString &new_name, const QString &old_name) {
-//     if(existsSession(new_name) || !existsSession(old_name) || old_name == currentSession()) return false;
-//     else {
-//         bool rc = createSession(new_name, old_name);
-//         if(rc) {
-//             deleteSession(old_name);
-//             return true;
-//         } else return false;
-//     }
-// }
-//
-// bool KtWorkspaceApp::createSession(const QString &new_name, const QString &src_name) {
-//     if(existsSession(new_name) || !isValidSessionName(new_name) || (!src_name.isEmpty() && !existsSession(src_name))) return false;
-//     else {
-//         QDir dr(self->computed_datadir_path);
-//         if(!dr.mkdir(QString("session_") += new_name)) return false;
-//         else {
-//             if(!src_name.isEmpty()) cp_r(self->computed_datadir_path, QString("session_") += src_name, self->computed_datadir_path, QString("session_") += new_name);
-//             return true;
-//         }
-//     }
-// }
-//
-// bool KtWorkspaceApp::deleteSession(const QString &name) {
-//     if(existsSession(name) && self->cur_session != name) {
-//         rm_r(self->computed_datadir_path, QString("session_") += name);
-//         return true;
-//     } else return false;
-// }
-//
-// std::auto_ptr<QSettings> KtWorkspaceApp::getGlobalSettings() {
-//     auto qs = std::auto_ptr<QSettings>(new QSettings(QDir(getGlobalDataDir()).absoluteFilePath("ktws_settings.ini"), QSettings::IniFormat));
-//     return qs;
-// }
-// QString KtWorkspaceApp::getGlobalDataDir() const {
-//     QDir dr(self->computed_datadir_path);
-//     if(!dr.exists("global")) dr.mkpath("global");
-//     return dr.absoluteFilePath("global");
-// }
-// std::auto_ptr<QSettings> KtWorkspaceApp::getSessionSettings(const QString & name) {
-//     if((!name.isEmpty() && !existsSession(name)) || self->cur_session.isEmpty()) return std::auto_ptr<QSettings>();
-//     else {
-//         auto qs = std::auto_ptr<QSettings>(new QSettings(QDir(getSessionDataDir()).absoluteFilePath("ktws_settings.ini"), QSettings::IniFormat));
-//         return qs;
-//     }
-// }
-// QString KtWorkspaceApp::getSessionDataDir(const QString &name) {
-//     if((!name.isEmpty() && !existsSession(name)) || self->cur_session.isEmpty()) return QString();
-//     else {
-//         QDir dr(self->computed_datadir_path);
-//         QString sn = QString("session_") += (name.isEmpty() ? self->cur_session : name);
-//         if(!dr.exists(sn)) dr.mkpath(sn);
-//         return dr.absoluteFilePath(sn);
-//     }
-// }
-//
-// // Global notifications
-// void KtWorkspaceApp::showNotification(const QString &synopsis, NotificationKinds kind, const QString &detail) const {
-//     switch(kind) {
-//     case N_Info:
-//         self->tray_icon->showMessage(applicationName(),
-//             (detail.isEmpty() ? synopsis : QString("%1\n\n%2").arg(synopsis, detail)));
-//         break;
-//     case N_Warning:
-//         self->tray_icon->showMessage(applicationName(),
-//             (detail.isEmpty() ? synopsis : QString("%1\n\n%2").arg(synopsis, detail)),
-//             QSystemTrayIcon::Warning);
-//         break;
-//     case N_Critical:
-//         {
-//             QMessageBox mb;
-//             mb.setStandardButtons(QMessageBox::Ok);
-//             mb.setWindowTitle(applicationName());
-//             mb.setIcon(QMessageBox::Critical);
-//             mb.setText(synopsis);
-//             mb.setInformativeText(detail);
-//             mb.exec();
-//         } break;
-//     }
-// }
-//
-// QString KtWorkspaceApp::userStatus() const { return self->user_status; }
-// void KtWorkspaceApp::setUserStatus(const QString & val) {
-//     self->user_status = val;
-//     if(self->tray_icon) {
-//         if(val.isEmpty()) self->tray_icon->setToolTip(applicationName());
-//         else self->tray_icon->setToolTip(applicationName() + ": " + self->user_status);
-//     }
-// }
-//
-// // Global actions
-// bool KtWorkspaceApp::addGlobalAction(QAction *action) {
-//     if(self->installed_actions.contains(action)) return false;
-//     else {
-//         self->installed_actions.insert(action);
-//         self->global_menu->insertAction(self->top_sep, action);
-//         return true;
-//     }
-// }
-// void KtWorkspaceApp::removeGlobalAction(QAction *action) { self->installed_actions.remove(action); }
-// QSet<QAction *> KtWorkspaceApp::globalActions() const { return self->installed_actions; }
-//
-// bool KtWorkspaceApp::registerAboutHandler(KtWorkspaceAboutHandler * handler) {
-//     if(self->about_handler) return false;
-//     else {
-//         self->about_handler = handler;
-//         return true;
-//     }
-// }
-//
-// // Additional global elements
-// KtWorkspaceAboutHandler * KtWorkspaceApp::getAboutHandler() const { return self->about_handler; }
-// void KtWorkspaceApp::unregisterAboutHandler() { self->about_handler = 0; }
-// bool KtWorkspaceApp::registerPrefsHandler(KtWorkspacePrefsHandler * handler) {
-//     if(self->prefs_handler) return false;
-//     else {
-//         self->prefs_handler = handler;
-//         self->p_action->setVisible(true);
-//         return true;
-//     }
-// }
-// KtWorkspacePrefsHandler * KtWorkspaceApp::getPrefsHandler() const { return self->prefs_handler; }
-// void KtWorkspaceApp::unregisterPrefsHandler() {
-//     self->p_action->setVisible(false);
-//     self->prefs_handler = 0;
-// }
-//
-// // Worksheet management
-// quint16 KtWorkspaceApp::worksheetCount() const {
-//     return self->worksheets.count();
-// }
-// QList<KtWorksheet *> KtWorkspaceApp::allWorksheets() const {
-//     QList<KtWorksheet *> wl;
-//     foreach(KtWorksheet * w, self->worksheets) wl.append(w);
-//     return wl;
-// }
-//
-// bool KtWorkspaceApp::registerWorksheetHandler(const QString & class_name, KtWorkspaceWorksheetHandler * handler) {
-//     if(self->worksheet_handlers.contains(class_name)) return false;
-//     else {
-//         self->worksheet_handlers.insert(class_name, handler);
-//         return true;
-//     }
-// }
-// KtWorkspaceWorksheetHandler *KtWorkspaceApp::getWorksheetHandler(const QString &class_name) const { return self->worksheet_handlers.value(class_name, 0); }
-// void KtWorkspaceApp::unregisterWorksheetHandler(const QString & class_name) { self->worksheet_handlers.remove(class_name); }
-// void KtWorkspaceApp::resetDefaultWorksheetClasses(const QStringList & defaults) { self->default_worksheet_class = defaults; }
-//
-// KtWorksheet * KtWorkspaceApp::attachWorksheet(const QString & class_name) {
-//     return attachWorksheetHelper(class_name, QUuid::createUuid(), true);
-// }
-// bool KtWorkspaceApp::detachWorksheet(KtWorksheet * worksheet) {
-//     return detachWorksheetHelper(worksheet, false, true);
-// }
-//
-// // Slots
-// void KtWorkspaceApp::sessionsDialog() {
-//     KtWorkspaceSessionDialog dlg;
-//     dlg.exec();
-// }
-// void KtWorkspaceApp::onAbout() {
-//     if(self->about_handler) self->about_handler->onAbout();
-//     else QMessageBox::about(0, applicationName(), QString("%1 %2\n%3").arg(applicationName(), applicationVersion(), organizationName()));
-// }
-// void KtWorkspaceApp::onPrefs() {
-//     if(self->prefs_handler) self->prefs_handler->onPrefs();
-// }
-// void KtWorkspaceApp::requestQuit() {
-//     emit sessionAboutToEnd(self->cur_session);
-//     QString olds = self->cur_session;
-//     selectSession();
-//     emit sessionEnded(olds);
-//     exit(0);
-// }
-//
-// // Misc.
-// bool KtWorkspaceApp::isValidSessionName(const QString &n) {
-//     if(n.isEmpty()) return false;
-//     foreach(QChar c, n) {
-//         if(!(c.isLetterOrNumber() || c == QChar('_') || c == QChar(' '))) return false;
-//     }
-//     return true;
-// }
-//
-// void KtWorkspaceApp::rm_r(const QString &parent, const QString &dirname) {
-//     QDir p(parent);
-//     QDir root = p;
-//     if(p.exists(dirname)) {
-//         root.cd(dirname);
-//         QFileInfoList entries = root.entryInfoList(QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot);
-//         foreach(QFileInfo e, entries) {
-//             if(e.isDir()) {
-//                 rm_r(root.absolutePath(), e.fileName());
-//                 root.rmdir(e.fileName());
-//             } else root.remove(e.fileName());
-//         }
-//         p.rmdir(dirname);
-//     }
-// }
-//
-// void KtWorkspaceApp::cp_r(const QString &parent, const QString &dirname, const QString &newparent, const QString &newdirname) {
-//     QDir p(parent);
-//     QDir np(newparent);
-//     QDir root = p;
-//     np.mkdir(newdirname);
-//     QDir newroot = np;
-//     newroot.cd(newdirname);
-//     if(p.exists(dirname)) {
-//         root.cd(dirname);
-//         QFileInfoList entries = root.entryInfoList(QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot);
-//         foreach(QFileInfo e, entries) {
-//             if(e.isDir()) {
-//                 root.mkdir(e.fileName());
-//                 cp_r(root.absolutePath(), e.fileName(), newroot.absolutePath(), e.fileName());
-//             } else QFile::copy(root.filePath(e.fileName()), newroot.filePath(e.fileName()));
-//         }
-//     }
-// }
-//
-// QList<KtWorkspaceApp::SavedWs> KtWorkspaceApp::allSavedWorksheets() {
-//     auto scfg = getSessionSettings();
-//     QList<SavedWs> wsl;
-//     if(scfg->contains("ktws_saved")) {
-//         QStringList strls = scfg->value("ktws_saved").toStringList();
-//         foreach(const QString & s, strls) {
-//             QStringList spl = s.split(QChar('/'));
-//             if(spl.count() == 2) {
-//                 QUuid u(spl[0]);
-//                 if(!u.isNull()) wsl.append(SavedWs(u, spl[1]));
-//             }
-//         }
-//     }
-//     return wsl;
-// }
-//
-// void KtWorkspaceApp::removeSavedWorksheet(const QUuid &id) {
-//     auto scfg = getSessionSettings();
-//     if(scfg->contains("ktws_saved")) {
-//         QStringList strls = scfg->value("ktws_saved").toStringList();
-//         for(auto itr = strls.begin(); itr != strls.end(); itr++) {
-//             if(itr->startsWith(id.toString())) {
-//                 strls.erase(itr);
-//                 scfg->setValue("ktws_saved", strls);
-//                 break;
-//             }
-//         }
-//     }
-// }
-//
-// void KtWorkspaceApp::addSavedWorksheet(const QUuid &id, const QString &class_name) {
-//     auto scfg = getSessionSettings();
-//     QStringList strls = scfg->value("ktws_saved").toStringList();
-//     strls.append(id.toString() + QChar('/') + class_name);
-//     scfg->setValue("ktws_saved", strls);
-// }
-//
-// void KtWorkspaceApp::worksheetClose(KtWorksheet * worksheet) {
-//     detachWorksheetHelper(worksheet, true, true);
-// }
-//
-// KtWorksheet * KtWorkspaceApp::attachWorksheetHelper(const QString &class_name, const QUuid &id, bool add_saved_worksheet) {
-//     if(!self->worksheet_handlers.contains(class_name)) {
-//         qWarning() << QString("Can't attach new worksheet: no handler registered for KtWorksheet class name of %1!").arg(class_name);
-//         return 0;
-//     } else {
-//         KtWorksheet * ws = self->worksheet_handlers.value(class_name)->attach(id, class_name);
-//         if(ws) {
-//             self->worksheets.insert(ws);
-//             if(add_saved_worksheet) addSavedWorksheet(ws->id(), class_name);
-//             ws->show();
-//         } else qWarning() << QString("Creation of %1 worksheet failed").arg(class_name);
-//         return ws;
-//     }
-// }
-//
-// bool KtWorkspaceApp::detachWorksheetHelper(KtWorksheet *worksheet, bool already_closed, bool remove_saved_worksheet) {
-//     if(worksheet) {
-//         QUuid old_id = worksheet->id();
-//         if(!already_closed) worksheet->close();
-//         self->worksheets.remove(worksheet);
-//
-//         // Clear worksheet settings
-//         if(remove_saved_worksheet) {
-//             auto scfg = getSessionSettings();
-//             scfg->remove(QString("ktws_") + old_id.toString());
-//             removeSavedWorksheet(old_id);
-//         }
-//
-//         return true;
-//     } else {
-//         qWarning() << "Unable to detach worksheet that is null";
-//         return false;
-//     }
-// }
+Session *Workspace::sessionById(const QUuid &id) const {
+    return d->m_session_table.value(id, nullptr);
+}
+Session *Workspace::sessionByName(const QString &name) const {
+    foreach(Session *s, d->m_session_table) {
+        if(s->name() == name) return s;
+    }
+    return nullptr;
+}
+
+Session *Workspace::createSession(const QString &new_name) {
+    QUuid nid = QUuid::createUuid();
+    Session *ns = new Session(nid, this, this);
+    ns->setName(new_name);
+    d->m_session_table.insert(nid, ns);
+    SessionMd nmd = { nid, new_name, QDateTime() };
+    if(!writeSessionMetadata(d->m_app_id, nmd)) {
+        qWarning() << QString("Ktws::Workspace::createSession: Unable to write session metadata for %1 \"%2\"")
+            .arg(nid.toString(), new_name);
+    }
+    return ns;
+}
+
+// Settings and data
+QVariantHash &Workspace::globalSettings() { return d->m_settings; }
+const QVariantHash &Workspace::globalSettings() const { return d->m_settings; }
+void Workspace::replaceGlobalSettings(const QVariantHash &settings) { d->m_settings = settings; }
+QString Workspace::globalDataDir() const { return getGlobalDataDir(d->m_app_id); }
+
+// Global actions
+QList<QAction *> Workspace::globalActions() const { return d->m_global_actions; }
+void Workspace::addGlobalAction(QAction *action) {
+    d->m_global_actions.append(action);
+    emit globalActionsModified(d->m_global_actions);
+}
+void Workspace::addGlobalActions(const QList<QAction *> &actions) {
+    d->m_global_actions.append(actions);
+    emit globalActionsModified(d->m_global_actions);
+}
+void Workspace::insertGlobalAction(QAction *before, QAction *action) {
+    if(before == nullptr) d->m_global_actions.insert(0, action);
+    else {
+        int idx = d->m_global_actions.indexOf(before);
+        if(idx < 0) d->m_global_actions.insert(0, action);
+        else d->m_global_actions.insert(idx, action);
+    }
+    emit globalActionsModified(d->m_global_actions);
+}
+void Workspace::insertGlobalActions(QAction *before, const QList<QAction *> &actions) {
+    if(before == nullptr) d->m_global_actions = actions + d->m_global_actions;
+    else {
+        int idx = d->m_global_actions.indexOf(before);
+        if(idx < 0) d->m_global_actions = actions + d->m_global_actions;
+        else d->m_global_actions = d->m_global_actions.mid(0, idx) + actions + d->m_global_actions.mid(idx);
+    }
+    emit globalActionsModified(d->m_global_actions);
+}
+void Workspace::removeGlobalAction(QAction *action) {
+    if(d->m_global_actions.removeOne(action)) emit globalActionsModified(d->m_global_actions);
+}
+void Workspace::clearGlobalActions() { d->m_global_actions.clear(); }
+QAction *Workspace::defaultAction(DefaultAction da) {
+    switch(da) {
+    case AboutDefaultAction: return d->m_da_about;
+    case QuitDefaultAction: return d->m_da_quit;
+    case SessionsDefaultAction: return d->m_da_sessions;
+    default: return nullptr;
+    }
+}
+
+// Worksheet management
+int Workspace::worksheetCount() const { return d->m_worksheet_table.count(); }
+QList<Worksheet *> Workspace::worksheets() const { return d->m_worksheet_table.values(); }
+Worksheet *Workspace::worksheetById(const QUuid &id) const { return d->m_worksheet_table.value(id, nullptr); }
+Worksheet *Workspace::createWorksheet(const QString &class_name) {
+    return attachWorksheetHelper(class_name, QUuid::createUuid());
+}
+
+int Workspace::worksheetHandlerCount() const { return d->m_worksheet_handler_table.count(); }
+QList<QString> Workspace::worksheetHandlerClassNames() const { return d->m_worksheet_handler_table.keys(); }
+bool Workspace::registerWorksheetHandler(const QString &class_name, WorksheetHandler *handler) {
+    if(!d->m_worksheet_handler_table.contains(class_name)) {
+        d->m_worksheet_handler_table.insert(class_name, handler);
+        return true;
+    } else return false;
+}
+WorksheetHandler *Workspace::worksheetHandler(const QString &class_name) const { return d->m_worksheet_handler_table.value(class_name, nullptr); }
+void Workspace::unregisterWorksheetHandler(const QString &class_name) { d->m_worksheet_handler_table.remove(class_name); }
+QString Workspace::defaultWorksheetClass() const { return d->m_default_worksheet_class; }
+void Workspace::setDefaultWorksheetClass(const QString &class_name) {
+    if(!d->m_worksheet_handler_table.contains(class_name)) {
+        qWarning() << QString("Ktws::Workspace::setDefaultWorksheetClass: "
+            "Set \"%1\" as default, but this handler class isn't registered yet!").arg(class_name);
+    }
+    d->m_default_worksheet_class = class_name;
+}
+
+//// Public slots ////
+void Workspace::requestQuit() {
+    selectSession(QUuid());
+    QCoreApplication::quit();
+}
+void Workspace::sessionsDialog() {
+    SessionDialog *dlg = new SessionDialog(this, QApplication::activeWindow());
+    dlg->exec();
+    dlg->deleteLater();
+}
+void Workspace::aboutDialog() {
+    QMessageBox::about(QApplication::activeWindow(), QApplication::applicationName(), 
+        QString("<b>%1 %2</b><br/>%3").arg(QCoreApplication::applicationName(), QCoreApplication::applicationVersion(), QCoreApplication::organizationName()));
+}
+
+//// Private methods ////
+// Sessions
+bool Workspace::selectSession(const QUuid &id) {
+    if(!id.isNull() && !d->m_session_table.contains(id)) return false;
+
+    if(!d->m_cur_session_id.isNull()) {
+        // End existing session
+        Session *os = d->m_session_table.value(d->m_cur_session_id);
+
+        d->m_session_status = SessionEnding;
+        emit sessionAboutToEnd(os);
+
+        // Save table of worksheets and close them
+        QList<WorksheetMd> swmd;
+        QList<QUuid> wsids = d->m_worksheet_table.keys();
+        foreach(const QUuid &id, wsids) {
+            Worksheet *sheet = d->m_worksheet_table[id];
+            WorksheetMd md = { sheet->id(), sheet->className() };
+            swmd.append(md);
+            sheet->close();
+        }
+
+        // Save session settings
+        writeSessionSettings(d->m_app_id, d->m_cur_session_id, os->settings());
+
+        d->m_session_status = SessionNone;
+        emit sessionEnded(os);
+    }
+    
+    d->m_cur_session_id = id;
+    
+    if(!id.isNull()) {
+        // Begin selected session
+        Session *ss = d->m_session_table.value(id);
+
+        d->m_session_status = SessionStarting;
+        emit sessionAboutToStart(ss);
+
+        // Restore session settings
+        readSessionSettings(d->m_app_id, id, ss->settings());
+
+        // Restore worksheets
+        QList<WorksheetMd> wsl = scanWorksheets(d->m_app_id, id);
+        foreach(const WorksheetMd &md, wsl) attachWorksheetHelper(md.class_name, md.id);
+        if(d->m_worksheet_table.isEmpty()) {
+            // Open a new worksheet with the default handler
+            if(d->m_worksheet_handler_table.contains(d->m_default_worksheet_class)) {
+                attachWorksheetHelper(d->m_default_worksheet_class, QUuid::createUuid());
+            } else {
+                QMessageBox errbox(QMessageBox::Critical, QCoreApplication::applicationName(),
+                    "Unable to open any worksheets!", QMessageBox::Ok);
+                errbox.setInformativeText("No worksheets could be opened, which most likely "
+                    "indicates a bug in the application.");
+                QString errnfo("Developer information:<br/><br/>%1, and %2");
+                if(wsl.isEmpty()) errnfo = errnfo.arg("There were no saved worksheets");
+                else errnfo = errnfo.arg("The application couldn't load any of the saved "
+                    "worksheets, perhaps due to a different version running now");
+                if(d->m_default_worksheet_class.isEmpty()) {
+                    errnfo = errnfo.arg("no default worksheet handler was set.");
+                } else errnfo = errnfo.arg("the default worksheet handler was not a registered handler.");
+                errnfo += QString("<br/><br/><b>Default worksheet class:</b> %1").arg(d->m_default_worksheet_class);
+                errnfo += QString("<br/><br/><b>Saved worksheets (as {<i>id</i>}::<i>class</i>):</b><br/>");
+                foreach(const WorksheetMd &md, wsl) errnfo += QString("%1::%2").arg(md.id.toString(), md.class_name);
+                errbox.setDetailedText(errnfo);
+                errbox.exec();
+            }
+        }
+        d->m_session_status = SessionRunning;
+        emit sessionStarted(ss);
+    }
+    return true;
+}
+Session *Workspace::cpSession(const QString &new_name, const QUuid &clone_src) {
+    Session *ns = createSession(new_name);
+    if(ns) {
+        cp_r(getSessionSettingsDir(d->m_app_id, clone_src), getSessionSettingsDir(d->m_app_id, ns->id()));
+        cp_r(getSessionDataDir(d->m_app_id, clone_src), getSessionDataDir(d->m_app_id, ns->id()));
+    }
+    return ns;
+}
+bool Workspace::rmSession(const QUuid &id) {
+    if(d->m_session_table.remove(id)) return deleteSession(d->m_app_id, id);
+    else return false;
+}
+
+Worksheet *Workspace::attachWorksheetHelper(const QString &class_name, const QUuid &id) {
+    if(!d->m_worksheet_handler_table.contains(class_name)) {
+        qWarning() << QString("Ktws::Workspace::attachWorksheet: No handler registered for the class name \"%1\"").arg(class_name);
+        return nullptr;
+    } else if(d->m_worksheet_table.contains(id)) {
+        qCritical() << QString("Ktws::Workspace::attachWorksheetHelper: Duplicate id %1 attach attempted!!").arg(id.toString());
+        return nullptr;
+    } else {
+        Worksheet *ws = d->m_worksheet_handler_table[class_name]->attach(class_name, this, id);
+        if(ws) {
+            d->m_worksheet_table.insert(id, ws);
+            ws->show();
+        }
+        return ws;
+    }
+};
+void Workspace::handleWorksheetClose(const QUuid &id) {
+    d->m_worksheet_table.remove(id);
+}
+} // namespace Ktws

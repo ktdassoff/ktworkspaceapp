@@ -20,7 +20,7 @@ class KTWORKSPACEAPP_EXPORT Worksheet : public QMainWindow {
     Q_PROPERTY(QUuid id READ id CONSTANT)
 
 public:
-    Worksheet(const QString &class_name, Workspace *wspace, const QUuid &session_id, const QUuid &wsheet_id, QWidget *parent = nullptr);
+    Worksheet(const QString &class_name, Workspace *wspace, const QUuid &wsheet_id, QWidget *parent = nullptr);
     virtual ~Worksheet();
 
     QString className() const;
@@ -39,12 +39,7 @@ protected:
     void replaceSettings(const QVariantHash &settings);
 
     virtual void closeEvent(QCloseEvent *event);
-    enum CloseType {
-        GeneralClose,
-        ExplicitClose,
-        SessionEndClose
-    };
-    virtual bool confirmClose(CloseType close_type);
+    virtual bool confirmClose(bool explicit_close);
 };
 } // namespace Ktws
 

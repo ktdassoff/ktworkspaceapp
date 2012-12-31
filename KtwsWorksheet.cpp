@@ -1,6 +1,8 @@
 #include "KtwsWorksheet.hpp"
 #include "KtwsWorksheet_p.hpp"
 #include "KtwsWorkspace.hpp"
+#include "KtwsSession.hpp"
+#include "KtwsSerialization_p.hpp"
 
 #include <QDebug>
 #include <QEvent>
@@ -8,18 +10,18 @@
 #include <QMoveEvent>
 
 namespace Ktws {
-Worksheet::Worksheet(const QString &class_name, Workspace *wspace, const QUuid &session_id, const QUuid &wsheet_id, QWidget *parent)
+Worksheet::Worksheet(const QString &class_name, Workspace *wspace, const QUuid &wsheet_id, QWidget *parent)
     : QMainWindow(parent),
-      d(new WorksheetImpl(class_name, wspace, session_id, wsheet_id))
+      d(new WorksheetImpl(class_name, wspace, wspace->currentSession(), wsheet_id))
 {
-		// Read in stored settings
-		wspace->deserializeWorksheetSettings(session_id, wsheet_id, d->m_settings);
+	// Read in stored settings
+    readWorksheetSettings(wspace->appId(), d->m_session->id(), wsheet_id, d->m_settings);
 
-        // Restore any window state
-        if(d->m_settings.contains("ktws_wgeom")) restoreGeometry(d->m_settings["ktws_wgeom"].toByteArray());
-        if(d->m_settings.contains("ktws_wstate")) setWindowState(Qt::WindowState(d->m_settings["ktws_wstate"].toInt()));
+    // Restore any window state
+    if(d->m_settings.contains("ktws_wgeom")) restoreGeometry(d->m_settings["ktws_wgeom"].toByteArray());
+    if(d->m_settings.contains("ktws_wstate")) setWindowState(Qt::WindowState(d->m_settings["ktws_wstate"].toInt()));
 
-        setAttribute(Qt::WA_DeleteOnClose);
+    setAttribute(Qt::WA_DeleteOnClose);
 }
 
 Worksheet::~Worksheet() {
@@ -31,7 +33,7 @@ QUuid Worksheet::id() const { return d->m_wsheet_id; }
 
 Workspace *Worksheet::workspace() const { return d->m_wspace; }
 Session *Worksheet::session() const {
-	return d->m_wspace->sessionById(d->m_session_id);
+	return d->m_session;
 }
 
 QVariantHash &Worksheet::settings() {
@@ -45,26 +47,22 @@ void Worksheet::replaceSettings(const QVariantHash &settings) {
 }
 
 void Worksheet::closeEvent(QCloseEvent *event) {
-	bool confirm = false;
-    if(d->m_explicit_close) {
-        confirm = confirmClose(ExplicitClose);
-        if(confirm) d->m_wspace->handleWorksheetClose(d->m_wsheet_id);
-    } else if(d->m_wspace->isSessionTransition()) {
-        confirm = confirmClose(SessionEndClose);
-    } else {
-        confirm = confirmClose(GeneralClose);
-        if(confirm) d->m_wspace->handleWorksheetClose(d->m_wsheet_id);
-    }
+	bool confirm = true;
+    if(!d->m_wspace->isSessionTransition()) confirm = confirmClose(d->m_explicit_close);
 
     if(confirm) {
-    	d->m_settings["ktws_wgeom"] = saveGeometry();
-    	d->m_settings["ktws_wstate"] = int(windowState());
-    	d->m_wspace->serializeWorksheetSettings(d->m_session_id, d->m_wsheet_id, d->m_settings);
+        if(d->m_wspace->isSessionTransition()) {
+    	    d->m_settings["ktws_wgeom"] = saveGeometry();
+    	    d->m_settings["ktws_wstate"] = int(windowState());
+            writeWorksheetSettings(d->m_wspace->appId(), d->m_session->id(), d->m_wsheet_id, d->m_settings);
+        } else deleteWorksheet(d->m_wspace->appId(), d->m_session->id(), d->m_wsheet_id);
+
+        d->m_wspace->handleWorksheetClose(d->m_wsheet_id);
     	event->accept();
     } else event->ignore();
 }
 
-bool Worksheet::confirmClose(CloseType close_type) { return true; }
+bool Worksheet::confirmClose(bool explicit_close) { return true; }
 
 bool Worksheet::explicitClose() {
     d->m_explicit_close = true;

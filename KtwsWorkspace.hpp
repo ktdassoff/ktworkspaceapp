@@ -12,11 +12,10 @@ class QAction;
 
 namespace Ktws {
 class Session;
-struct SessionInfo;
 class WorksheetHandler;
 class Worksheet;
 
-class WorkspaceImpl;
+struct WorkspaceImpl;
 class KTWORKSPACEAPP_EXPORT Workspace : public QObject {
     Q_OBJECT
     Q_DISABLE_COPY(Workspace)
@@ -28,10 +27,9 @@ class KTWORKSPACEAPP_EXPORT Workspace : public QObject {
     Q_ENUMS(SessionStatus DefaultAction)
 
 public:
-    explicit Workspace(QObject *parent = nullptr);
+    explicit Workspace(const QString &app_id, QObject *parent = nullptr);
     virtual ~Workspace();
-
-    QString appName();
+    QString appId() const;
 
     // Session management
     enum SessionStatus {
@@ -50,8 +48,8 @@ public:
     QList<Session *> sessions() const;
     Session *currentSession() const;
     Session *lastUsedSession() const;
-    Session *sessionById(const QUuid &id);
-    Session *sessionByName(const QString &name);
+    Session *sessionById(const QUuid &id) const;
+    Session *sessionByName(const QString &name) const;
     Session *createSession(const QString &new_name);
 
     // Settings and data
@@ -60,17 +58,12 @@ public:
     void replaceGlobalSettings(const QVariantHash &settings);
     QString globalDataDir() const;
 
-    // Global notifications and status
-    QString userStatus() const;
-    void setUserStatus(const QString &status);
-    void clearNotifications();
-
     // Global actions
     QList<QAction *> globalActions() const;
     void addGlobalAction(QAction *action);
-    void addGlobalActions(QList<QAction *> actions);
+    void addGlobalActions(const QList<QAction *> &actions);
     void insertGlobalAction(QAction *before, QAction *action);
-    void insertGlobalActions(QAction *before, QList<QAction *> actions);
+    void insertGlobalActions(QAction *before, const QList<QAction *> &actions);
     void removeGlobalAction(QAction *action);
     void clearGlobalActions();
     enum DefaultAction {
@@ -83,14 +76,16 @@ public:
     // Worksheet management
     int worksheetCount() const;
     QList<Worksheet *> worksheets() const;
-    Worksheet *worksheetById(const QUuid &id);
+    Worksheet *worksheetById(const QUuid &id) const;
     Worksheet *createWorksheet(const QString &class_name);
 
     int worksheetHandlerCount() const;
     QList<QString> worksheetHandlerClassNames() const;
     bool registerWorksheetHandler(const QString &class_name, WorksheetHandler *handler);
-    WorksheetHandler *getWorksheetHandler(const QString &class_name) const;
+    WorksheetHandler *worksheetHandler(const QString &class_name) const;
     void unregisterWorksheetHandler(const QString &class_name);
+    QString defaultWorksheetClass() const;
+    void setDefaultWorksheetClass(const QString &class_name);
 
 public slots:
     void requestQuit();
@@ -109,32 +104,12 @@ signals:
 
 private:
 	// Sessions
-	QUuid currentSessionId() const;
-    QUuid lastUsedSessionId() const;
-    bool existsSession(const QUuid &id);
     bool selectSession(const QUuid &id);
-    QUuid mkSession(const QString &new_name, const QUuid &clone_src);
+    Session *cpSession(const QString &new_name, const QUuid &clone_src);
     bool rmSession(const QUuid &id);
-    bool renameSession(const QString &new_name, const QUuid &id);
-
-    // Data
-    QString baseDataDir() const;
-    QString curSessionDataDir() const;
-    QVariantHash &curSessionSettings();
-    void replaceCurSessionSettings(const QVariantHash &settings);
-
-    bool deserializeGlobalSettings();
-    bool serializeGlobalSettings();
-    bool deserializeSessionSettings(const QUuid &session_id, QVariantHash &target);
-    bool serializeSessionSettings(const QUuid &session_id, const QVariantHash &source);
-    void clearSessionSettings(const QUuid &session_id);
-    bool deserializeWorksheetSettings(const QUuid &session_id, const QUuid &worksheet_id, QVariantHash &target);
-    bool serializeWorksheetSettings(const QUuid &session_id, const QUuid &worksheet_id, const QVariantHash &source);
-    void clearWorksheetSettings(const QUuid &session_id, const QUuid &worksheet_id);
 
     // Worksheets/helpers
     Worksheet *attachWorksheetHelper(const QString &class_name, const QUuid &id);
-    void detachWorksheetHelper(const QUuid &id, bool rm_saved);
     void handleWorksheetClose(const QUuid &id);
 };
 } // namespace Ktws

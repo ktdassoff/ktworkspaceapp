@@ -22,6 +22,7 @@ class KTWORKSPACEAPP_EXPORT Session : public QObject {
     friend class Workspace;
 
     Session(const QUuid &id, Workspace *wspace, QObject *parent = nullptr);
+    void setLastUsedTimestamp(const QDateTime &ts);
 
 public:
     virtual ~Session();

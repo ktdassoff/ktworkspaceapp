@@ -10,23 +10,26 @@
 
 namespace Ktws {
 struct WorkspaceImpl {
+    QString m_app_id;
     Workspace::SessionStatus m_session_status;
     QUuid m_cur_session_id;
     QHash<QUuid, Worksheet *> m_worksheet_table;
     QHash<QString, WorksheetHandler *> m_worksheet_handler_table;
+    QString m_default_worksheet_class;
     QHash<QUuid, Session *> m_session_table;
-    QString m_user_status_str;
+    QVariantHash m_settings;
     QList<QAction *> m_global_actions;
 	QAction *m_da_about, *m_da_quit, *m_da_sessions;
 
-	WorkspaceImpl()
-    	: m_session_status(Workspace::SessionNone),
+	WorkspaceImpl(const QString &app_id)
+    	: m_app_id(app_id),
+          m_session_status(Workspace::SessionNone),
     	  m_cur_session_id(),
     	  m_worksheet_table(),
     	  m_worksheet_handler_table(),
+          m_default_worksheet_class(),
     	  m_session_table(),
-    	  m_cur_session_settings(),
-    	  m_user_status_str(),
+    	  m_settings(),
     	  m_global_actions(),
           m_da_about(nullptr),
           m_da_quit(nullptr),

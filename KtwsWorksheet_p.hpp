@@ -9,19 +9,20 @@
 
 namespace Ktws {
 class Workspace;
+class Session;
 
 struct WorksheetImpl {
     QString m_class_name;
     Workspace *m_wspace;
-    QUuid m_session_id;
+    Session *m_session;
     QUuid m_wsheet_id;
     bool m_explicit_close;
     QVariantHash m_settings;
 
-    WorksheetImpl(const QString &cn, Workspace *wspace, const QUuid &sid, const QUuid &wid)
+    WorksheetImpl(const QString &cn, Workspace *wspace, Session *session, const QUuid &wid)
     	: m_class_name(cn),
     	  m_wspace(wspace),
-    	  m_session_id(sid),
+    	  m_session(session),
     	  m_wsheet_id(wid),
     	  m_explicit_close(false),
     	  m_settings()

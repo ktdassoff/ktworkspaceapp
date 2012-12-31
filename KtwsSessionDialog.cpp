@@ -1,4 +1,4 @@
-#include "KtwsSessionDialog_p.hpp"
+#include "KtwsSessionDialog.hpp"
 
 #include <QBoxLayout>
 #include <QDialogButtonBox>
