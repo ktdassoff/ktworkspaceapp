@@ -5,7 +5,7 @@
 
 #include <QString>
 #include <QUuid>
-#include <QVariant>
+class QSettings;
 
 namespace Ktws {
 class Workspace;
@@ -17,7 +17,7 @@ struct WorksheetImpl {
     Session *m_session;
     QUuid m_wsheet_id;
     bool m_explicit_close;
-    QVariantHash m_settings;
+    QSettings *m_settings;
 
     WorksheetImpl(const QString &cn, Workspace *wspace, Session *session, const QUuid &wid)
     	: m_class_name(cn),
@@ -25,7 +25,7 @@ struct WorksheetImpl {
     	  m_session(session),
     	  m_wsheet_id(wid),
     	  m_explicit_close(false),
-    	  m_settings()
+    	  m_settings(nullptr)
     {}
 };
 } // namespace Ktws

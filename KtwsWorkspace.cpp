@@ -12,6 +12,7 @@
 #include <QDir>
 #include <QMessageBox>
 #include <QDebug>
+#include <QSettings>
 
 namespace Ktws {
 const char *S_GLOBAL_DIR_CMPNT = "global";
@@ -89,17 +90,18 @@ Session *Workspace::createSession(const QString &new_name) {
     ns->setName(new_name);
     d->m_session_table.insert(nid, ns);
     SessionMd nmd = { nid, new_name, QDateTime() };
-    if(!writeSessionMetadata(d->m_app_id, nmd)) {
-        qWarning() << QString("Ktws::Workspace::createSession: Unable to write session metadata for %1 \"%2\"")
-            .arg(nid.toString(), new_name);
-    }
+    writeSessionMetadata(d->m_app_id, nmd);
     return ns;
 }
 
 // Settings and data
-QVariantHash &Workspace::globalSettings() { return d->m_settings; }
-const QVariantHash &Workspace::globalSettings() const { return d->m_settings; }
-void Workspace::replaceGlobalSettings(const QVariantHash &settings) { d->m_settings = settings; }
+QSettings *Workspace::globalSettings() {
+    if(!d->m_settings) {
+        d->m_settings = openGlobalSettings(d->m_app_id);
+        d->m_settings->setParent(this);
+    }
+    return d->m_settings;
+}
 QString Workspace::globalDataDir() const { return getGlobalDataDir(d->m_app_id); }
 
 // Global actions
@@ -148,7 +150,12 @@ int Workspace::worksheetCount() const { return d->m_worksheet_table.count(); }
 QList<Worksheet *> Workspace::worksheets() const { return d->m_worksheet_table.values(); }
 Worksheet *Workspace::worksheetById(const QUuid &id) const { return d->m_worksheet_table.value(id, nullptr); }
 Worksheet *Workspace::createWorksheet(const QString &class_name) {
-    return attachWorksheetHelper(class_name, QUuid::createUuid());
+    Worksheet *ws = attachWorksheetHelper(class_name, QUuid::createUuid());
+    if(ws) {
+        WorksheetMd wmd = { ws->id(), ws->className() };
+        writeWorksheetMetadata(d->m_app_id, d->m_cur_session_id, wmd);
+    }
+    return ws;
 }
 
 int Workspace::worksheetHandlerCount() const { return d->m_worksheet_handler_table.count(); }
@@ -197,18 +204,9 @@ bool Workspace::selectSession(const QUuid &id) {
         d->m_session_status = SessionEnding;
         emit sessionAboutToEnd(os);
 
-        // Save table of worksheets and close them
-        QList<WorksheetMd> swmd;
+        // Close worksheets
         QList<QUuid> wsids = d->m_worksheet_table.keys();
-        foreach(const QUuid &id, wsids) {
-            Worksheet *sheet = d->m_worksheet_table[id];
-            WorksheetMd md = { sheet->id(), sheet->className() };
-            swmd.append(md);
-            sheet->close();
-        }
-
-        // Save session settings
-        writeSessionSettings(d->m_app_id, d->m_cur_session_id, os->settings());
+        foreach(const QUuid &id, wsids) d->m_worksheet_table[id]->close();
 
         d->m_session_status = SessionNone;
         emit sessionEnded(os);
@@ -222,9 +220,6 @@ bool Workspace::selectSession(const QUuid &id) {
 
         d->m_session_status = SessionStarting;
         emit sessionAboutToStart(ss);
-
-        // Restore session settings
-        readSessionSettings(d->m_app_id, id, ss->settings());
 
         // Restore worksheets
         QList<WorksheetMd> wsl = scanWorksheets(d->m_app_id, id);
@@ -259,15 +254,11 @@ bool Workspace::selectSession(const QUuid &id) {
 }
 Session *Workspace::cpSession(const QString &new_name, const QUuid &clone_src) {
     Session *ns = createSession(new_name);
-    if(ns) {
-        cp_r(getSessionSettingsDir(d->m_app_id, clone_src), getSessionSettingsDir(d->m_app_id, ns->id()));
-        cp_r(getSessionDataDir(d->m_app_id, clone_src), getSessionDataDir(d->m_app_id, ns->id()));
-    }
+    if(ns) cp_r(getSessionDir(d->m_app_id, clone_src), getSessionDir(d->m_app_id, ns->id()));
     return ns;
 }
-bool Workspace::rmSession(const QUuid &id) {
-    if(d->m_session_table.remove(id)) return deleteSession(d->m_app_id, id);
-    else return false;
+void Workspace::rmSession(const QUuid &id) {
+    if(d->m_session_table.remove(id)) deleteSession(d->m_app_id, id);
 }
 
 Worksheet *Workspace::attachWorksheetHelper(const QString &class_name, const QUuid &id) {

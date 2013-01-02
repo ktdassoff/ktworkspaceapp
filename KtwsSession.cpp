@@ -3,6 +3,7 @@
 #include "KtwsSerialization_p.hpp"
 
 #include <QDir>
+#include <QSettings>
 
 namespace Ktws {
 Session::Session(const QUuid &id, Workspace *wspace, QObject *parent)
@@ -14,12 +15,10 @@ Session::~Session() {
 QUuid Session::id() const { return d->m_id; }
 
 QString Session::name() const { return d->m_name; }
-bool Session::setName(const QString &name) {
+void Session::setName(const QString &name) {
     SessionMd md = { d->m_id, name, d->m_timestamp };
-    if(writeSessionMetadata(d->m_wspace->appId(), md)) {
-        d->m_name = name;
-        return true;
-    } else return false;
+    d->m_name = name;
+    writeSessionMetadata(d->m_wspace->appId(), md);
 }
 
 QDateTime Session::lastUsedTimestamp() const { return d->m_timestamp; }
@@ -37,11 +36,15 @@ bool Session::isLastUsed() const {
 Session *Session::clone(const QString &new_name) const {
     return d->m_wspace->cpSession(new_name, d->m_id);
 }
-bool Session::remove() { return d->m_wspace->rmSession(d->m_id); }
+void Session::remove() { return d->m_wspace->rmSession(d->m_id); }
 bool Session::switchTo() { return d->m_wspace->selectSession(d->m_id); }
 
-QVariantHash &Session::settings() { return d->m_settings; }
-const QVariantHash &Session::settings() const { return d->m_settings; }
-void Session::replaceSettings(const QVariantHash &settings) { d->m_settings = settings; }
+QSettings *Session::settings() {
+    if(!d->m_settings) {
+        d->m_settings = openSessionSettings(d->m_wspace->appId(), d->m_id);
+        d->m_settings->setParent(this);
+    }
+    return d->m_settings;
+}
 QString Session::dataDir() const { return getSessionDataDir(d->m_wspace->appId(), d->m_id); }
 } // namespace Ktws

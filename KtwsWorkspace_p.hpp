@@ -17,7 +17,7 @@ struct WorkspaceImpl {
     QHash<QString, WorksheetHandler *> m_worksheet_handler_table;
     QString m_default_worksheet_class;
     QHash<QUuid, Session *> m_session_table;
-    QVariantHash m_settings;
+    QSettings *m_settings;
     QList<QAction *> m_global_actions;
 	QAction *m_da_about, *m_da_quit, *m_da_sessions;
 
@@ -29,7 +29,7 @@ struct WorkspaceImpl {
     	  m_worksheet_handler_table(),
           m_default_worksheet_class(),
     	  m_session_table(),
-    	  m_settings(),
+    	  m_settings(nullptr),
     	  m_global_actions(),
           m_da_about(nullptr),
           m_da_quit(nullptr),

@@ -7,8 +7,8 @@
 #include <QObject>
 #include <QString>
 #include <QUuid>
-#include <QVariant>
 #include <QDateTime>
+class QSettings;
 
 namespace Ktws {
 class Workspace;
@@ -30,7 +30,7 @@ public:
     QUuid id() const;
 
     QString name() const;
-    bool setName(const QString &name);
+    void setName(const QString &name);
 
     QDateTime lastUsedTimestamp() const;
 
@@ -40,13 +40,10 @@ public:
     bool isLastUsed() const;
 
     Session *clone(const QString &new_name) const;
-    bool remove();
+    void remove();
     bool switchTo();
 
-    // Functional only if isCurrent() == true
-    QVariantHash &settings();
-    const QVariantHash &settings() const;
-    void replaceSettings(const QVariantHash &settings);
+    QSettings *settings();
     QString dataDir() const;
 };
 } // namespace Ktws

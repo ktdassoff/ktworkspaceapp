@@ -49,10 +49,9 @@ QVariant SessionModel::data(const QModelIndex &index, int role) const {
 }
 bool SessionModel::setData(const QModelIndex &index, const QVariant &value, int role) {
     if(index.row() >= 0 && index.row() < d->m_sessions.count() && role == Qt::EditRole) {
-        if(d->m_sessions[index.row()]->setName(value.toString())) {
-            emit dataChanged(index, index);
-            return true;
-        }
+        d->m_sessions[index.row()]->setName(value.toString());
+        emit dataChanged(index, index);
+        return true;
     }
     return false;
 }
@@ -122,12 +121,11 @@ bool SessionModel::createSession(const QString &new_name, const QModelIndex &src
 bool SessionModel::deleteSession(const QModelIndex &index) {
     if(index.parent().isValid() || index.row() >= d->m_sessions.count()) return false;
     else {
-        if(d->m_sessions[index.row()]->remove()) {
-            beginRemoveRows(QModelIndex(), index.row(), index.row());
-            d->m_sessions.removeAt(index.row());
-            endRemoveRows();
-            return true;
-        } else return false;
+        d->m_sessions[index.row()]->remove();
+        beginRemoveRows(QModelIndex(), index.row(), index.row());
+        d->m_sessions.removeAt(index.row());
+        endRemoveRows();
+        return true;
     }
 }
 bool SessionModel::selectSession(const QModelIndex &index) {

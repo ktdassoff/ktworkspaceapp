@@ -5,8 +5,8 @@
 #include "KtwsWorkspace.hpp"
 
 #include <QMainWindow>
-#include <QVariant>
 #include <QUuid>
+class QSettings;
 
 namespace Ktws {
 struct WorksheetImpl;
@@ -34,9 +34,7 @@ protected:
 	Workspace *workspace() const;
 	Session *session() const;
 
-    QVariantHash &settings();
-    const QVariantHash &settings() const;
-    void replaceSettings(const QVariantHash &settings);
+    QSettings *settings();
 
     virtual void closeEvent(QCloseEvent *event);
     virtual bool confirmClose(bool explicit_close);

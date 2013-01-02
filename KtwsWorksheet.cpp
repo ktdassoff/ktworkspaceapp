@@ -8,6 +8,7 @@
 #include <QEvent>
 #include <QResizeEvent>
 #include <QMoveEvent>
+#include <QSettings>
 
 namespace Ktws {
 Worksheet::Worksheet(const QString &class_name, Workspace *wspace, const QUuid &wsheet_id, QWidget *parent)
@@ -15,11 +16,11 @@ Worksheet::Worksheet(const QString &class_name, Workspace *wspace, const QUuid &
       d(new WorksheetImpl(class_name, wspace, wspace->currentSession(), wsheet_id))
 {
 	// Read in stored settings
-    readWorksheetSettings(wspace->appId(), d->m_session->id(), wsheet_id, d->m_settings);
+    QSettings *cfg = settings();
 
     // Restore any window state
-    if(d->m_settings.contains("ktws_wgeom")) restoreGeometry(d->m_settings["ktws_wgeom"].toByteArray());
-    if(d->m_settings.contains("ktws_wstate")) setWindowState(Qt::WindowState(d->m_settings["ktws_wstate"].toInt()));
+    if(cfg->contains("ktws_wgeom")) restoreGeometry(cfg->value("ktws_wgeom").toByteArray());
+    if(cfg->contains("ktws_wstate")) setWindowState(Qt::WindowState(cfg->value("ktws_wstate").toInt()));
 
     setAttribute(Qt::WA_DeleteOnClose);
 }
@@ -36,14 +37,12 @@ Session *Worksheet::session() const {
 	return d->m_session;
 }
 
-QVariantHash &Worksheet::settings() {
-	return d->m_settings;
-}
-const QVariantHash &Worksheet::settings() const {
+QSettings *Worksheet::settings() {
+    if(!d->m_settings) {
+        d->m_settings = openSessionSettings(d->m_wspace->appId(), d->m_wsheet_id);
+        d->m_settings->setParent(this);
+    }
     return d->m_settings;
-}
-void Worksheet::replaceSettings(const QVariantHash &settings) {
-	d->m_settings = settings;
 }
 
 void Worksheet::closeEvent(QCloseEvent *event) {
@@ -52,9 +51,10 @@ void Worksheet::closeEvent(QCloseEvent *event) {
 
     if(confirm) {
         if(d->m_wspace->isSessionTransition()) {
-    	    d->m_settings["ktws_wgeom"] = saveGeometry();
-    	    d->m_settings["ktws_wstate"] = int(windowState());
-            writeWorksheetSettings(d->m_wspace->appId(), d->m_session->id(), d->m_wsheet_id, d->m_settings);
+            QSettings *cfg = settings();
+    	    cfg->setValue("ktws_wgeom", saveGeometry());
+    	    cfg->setValue("ktws_wstate", int(windowState()));
+            cfg->sync();
         } else deleteWorksheet(d->m_wspace->appId(), d->m_session->id(), d->m_wsheet_id);
 
         d->m_wspace->handleWorksheetClose(d->m_wsheet_id);

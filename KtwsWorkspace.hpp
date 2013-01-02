@@ -3,12 +3,12 @@
 
 #include <KtwsGlobal.hpp>
 
+#include <QObject>
 #include <QList>
-#include <QWeakPointer>
-#include <QVariant>
 struct QUuid;
 class QIcon;
 class QAction;
+class QSettings;
 
 namespace Ktws {
 class Session;
@@ -53,9 +53,7 @@ public:
     Session *createSession(const QString &new_name);
 
     // Settings and data
-    QVariantHash &globalSettings();
-    const QVariantHash &globalSettings() const;
-    void replaceGlobalSettings(const QVariantHash &settings);
+    QSettings *globalSettings();
     QString globalDataDir() const;
 
     // Global actions
@@ -106,7 +104,7 @@ private:
 	// Sessions
     bool selectSession(const QUuid &id);
     Session *cpSession(const QString &new_name, const QUuid &clone_src);
-    bool rmSession(const QUuid &id);
+    void rmSession(const QUuid &id);
 
     // Worksheets/helpers
     Worksheet *attachWorksheetHelper(const QString &class_name, const QUuid &id);
