@@ -36,7 +36,7 @@ QVariant SessionModel::data(const QModelIndex &index, int role) const {
         if(role == Qt::DisplayRole) {
             switch(index.column()) {
             case 0: return d->m_sessions[index.row()]->name();
-            case 1: return d->m_sessions[index.row()]->id();
+            case 1: return d->m_sessions[index.row()]->id().toString();
             case 2: return d->m_sessions[index.row()]->lastUsedTimestamp();
             }
         } else if(role == Qt::FontRole && d->m_sessions[index.row()]->isCurrent()) {
