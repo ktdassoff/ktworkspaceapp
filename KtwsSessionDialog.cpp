@@ -1,15 +1,28 @@
 #include "KtwsSessionDialog.hpp"
+#include "KtwsSessionDialog_p.hpp"
+#include "KtwsSession.hpp"
+#include "KtwsWorkspace.hpp"
 
 #include <QBoxLayout>
 #include <QDialogButtonBox>
 #include <QListView>
+#include <QPushButton>
 #include <QInputDialog>
 #include <QMessageBox>
 #include <QApplication>
 
 namespace Ktws {
 // Model functions
-SessionModel::~SessionModel() {}
+SessionModel::SessionModel(Workspace *wspace, QObject *parent)
+    : QAbstractItemModel(parent), d(new SessionModelImpl(wspace))
+{
+    d->m_sessions = d->m_wspace->sessions();
+    connect(wspace, SIGNAL(sessionStarted(Session *)), SLOT(onSessionTransitioned(Session *)));
+    connect(wspace, SIGNAL(sessionEnded(Session *)), SLOT(onSessionTransitioned(Session *)));
+}
+SessionModel::~SessionModel() {
+    delete d;
+}
 
 QModelIndex SessionModel::index(int row, int column, const QModelIndex &parent) const {
     if(parent.isValid() || column < 0 || column > columnCount() || row < 0 || row > rowCount()) return QModelIndex();
@@ -19,14 +32,14 @@ QModelIndex SessionModel::parent(const QModelIndex &index) const {
     return QModelIndex();
 }
 QVariant SessionModel::data(const QModelIndex &index, int role) const {
-    if(!index.parent().isValid() || index.row() < m_sessions.count()) {
+    if(!index.parent().isValid() || index.row() < d->m_sessions.count()) {
         if(role == Qt::DisplayRole) {
             switch(index.column()) {
-            case 0: return m_sessions[index.row()]->name();
-            case 1: return m_sessions[index.row()]->id();
-            case 2: return m_sessions[index.row()]->lastUsedTimestamp();
+            case 0: return d->m_sessions[index.row()]->name();
+            case 1: return d->m_sessions[index.row()]->id();
+            case 2: return d->m_sessions[index.row()]->lastUsedTimestamp();
             }
-        } else if(role == Qt::FontRole && m_sessions[index.row()]->isCurrent()) {
+        } else if(role == Qt::FontRole && d->m_sessions[index.row()]->isCurrent()) {
             QFont fon;
             fon.setBold(true);
             return fon;
@@ -35,8 +48,8 @@ QVariant SessionModel::data(const QModelIndex &index, int role) const {
     return QVariant();
 }
 bool SessionModel::setData(const QModelIndex &index, const QVariant &value, int role) {
-    if(index.row() >= 0 && index.row() < m_sessions.count() && role == Qt::EditRole) {
-        if(m_sessions[index.row()]->setName(value.toString())) {
+    if(index.row() >= 0 && index.row() < d->m_sessions.count() && role == Qt::EditRole) {
+        if(d->m_sessions[index.row()]->setName(value.toString())) {
             emit dataChanged(index, index);
             return true;
         }
@@ -53,50 +66,53 @@ QVariant SessionModel::headerData(int section, Qt::Orientation orientation, int 
     }
     return QVariant();
 }
+bool SessionModel::hasChildren(const QModelIndex &parent) const {
+    return !parent.isValid();
+}
 int SessionModel::rowCount(const QModelIndex &parent) const {
     if(parent.isValid()) return 0;
-    else return m_sessions.count();
+    else return d->m_sessions.count();
 }
 int SessionModel::columnCount(const QModelIndex &parent) const {
     if(parent.isValid()) return 0;
     else return 3;
 }
 Qt::ItemFlags SessionModel::flags(const QModelIndex &index) const {
-    if(index.parent().isValid() || index.row() > m_sessions.count()) return Qt::NoItemFlags;
+    if(index.parent().isValid() || index.row() > d->m_sessions.count()) return Qt::NoItemFlags;
     else return Qt::ItemIsSelectable | Qt::ItemIsEnabled;
 }
 
 QModelIndex SessionModel::currentSessionIndex() const {
-    for(int i = 0; i < m_sessions.count(); i++) {
-        if(m_sessions[i]->isCurrent()) return index(i, 0);
+    for(int i = 0; i < d->m_sessions.count(); i++) {
+        if(d->m_sessions[i]->isCurrent()) return index(i, 0);
     }
     return QModelIndex();
 }
 bool SessionModel::isCurrentSession(const QModelIndex &index) const {
-    return index.row() < m_sessions.count() && m_sessions[index.row()]->isCurrent();
+    return index.row() < d->m_sessions.count() && d->m_sessions[index.row()]->isCurrent();
 }
 
 bool SessionModel::renameSession(const QString &new_name, const QModelIndex &index) {
-    if(index.parent().isValid() || index.row() >= m_sessions.count() || index.column() != 0) return false;
+    if(index.parent().isValid() || index.row() >= d->m_sessions.count() || index.column() != 0) return false;
     else return setData(index, new_name);
 }
 bool SessionModel::createSession(const QString &new_name, const QModelIndex &src_index) {
     if(src_index.isValid()) {
-        if(src_index.parent().isValid() || src_index.row() >= m_sessions.count()) return false;
+        if(src_index.parent().isValid() || src_index.row() >= d->m_sessions.count()) return false;
         else {
-            Session *sr = m_sessions[src_index.row()]->clone(new_name);
+            Session *sr = d->m_sessions[src_index.row()]->clone(new_name);
             if(sr) {
-                beginInsertRows(QModelIndex(), m_sessions.count(), m_sessions.count());
-                m_sessions.append(sr);
+                beginInsertRows(QModelIndex(), d->m_sessions.count(), d->m_sessions.count());
+                d->m_sessions.append(sr);
                 endInsertRows();
                 return true;
             }
         }
     } else {
-        Session *sr = m_wspace->createSession(new_name);
+        Session *sr = d->m_wspace->createSession(new_name);
         if(sr) {
-            beginInsertRows(QModelIndex(), m_sessions.count(), m_sessions.count());
-            m_sessions.append(sr);
+            beginInsertRows(QModelIndex(), d->m_sessions.count(), d->m_sessions.count());
+            d->m_sessions.append(sr);
             endInsertRows();
             return true;
         }
@@ -104,66 +120,76 @@ bool SessionModel::createSession(const QString &new_name, const QModelIndex &src
     return false;
 }
 bool SessionModel::deleteSession(const QModelIndex &index) {
-    if(index.parent().isValid() || index.row() >= m_sessions.count()) return false;
+    if(index.parent().isValid() || index.row() >= d->m_sessions.count()) return false;
     else {
-        if(m_sessions[index.row()]->remove()) {
+        if(d->m_sessions[index.row()]->remove()) {
             beginRemoveRows(QModelIndex(), index.row(), index.row());
-            m_sessions.removeAt(index.row());
+            d->m_sessions.removeAt(index.row());
             endRemoveRows();
             return true;
         } else return false;
     }
 }
 bool SessionModel::selectSession(const QModelIndex &index) {
-    if(index.parent().isValid() || index.row() >= m_sessions.count()) return false;
-    else return m_sessions[index.row()]->switchTo();
+    if(index.parent().isValid() || index.row() >= d->m_sessions.count()) return false;
+    else return d->m_sessions[index.row()]->switchTo();
+}
+
+void SessionModel::onSessionTransitioned(Session *session) {
+    for(int i = 0; i < d->m_sessions.count(); i++) {
+        if(d->m_sessions[i]->id() == session->id()) {
+            emit dataChanged(index(i, 0), index(i, columnCount()));
+            break;
+        }
+    }
 }
 
 // Dialog functions
 SessionDialog::SessionDialog(Workspace *wspace, QWidget *parent)
-    : QDialog(parent),
-    m_btn_reject(new QPushButton(tr("Cancel"), this)),
-    m_btn_switch(new QPushButton(tr("Switch"), this)),
-    m_btn_create(new QPushButton(tr("Create session..."), this)),
-    m_btn_clone(new QPushButton(tr("Clone session..."), this)),
-    m_btn_rename(new QPushButton(tr("Rename session..."), this)),
-    m_btn_delete(new QPushButton(tr("Delete session"), this)),
-    m_smodel(new SessionModel(wspace, this)),
-    m_slview(new QListView(this)),
-    m_wspace(wspace) {
-        connect(m_btn_reject, SIGNAL(clicked()), SLOT(reject()));
-        connect(m_btn_switch, SIGNAL(clicked()), SLOT(accept()));
-        connect(m_btn_create, SIGNAL(clicked()), SLOT(onCreate()));
-        connect(m_btn_clone, SIGNAL(clicked()), SLOT(onClone()));
-        connect(m_btn_rename, SIGNAL(clicked()), SLOT(onRename()));
-        connect(m_btn_delete, SIGNAL(clicked()), SLOT(onDelete()));
-        m_slview->setModel(m_smodel);
-        connect(m_slview->selectionModel(), SIGNAL(currentChanged(QModelIndex, QModelIndex)), SLOT(onCurChange(QModelIndex, QModelIndex)));
-        m_slview->setCurrentIndex(m_smodel->currentSessionIndex());
+    : QDialog(parent), d(new SessionDialogImpl(wspace, new SessionModel(wspace, this)))
+{
+        d->m_btn_reject = new QPushButton(tr("Cancel"));
+        connect(d->m_btn_reject, SIGNAL(clicked()), SLOT(reject()));
+        d->m_btn_switch = new QPushButton(tr("Switch"));
+        connect(d->m_btn_switch, SIGNAL(clicked()), SLOT(accept()));
+        d->m_btn_create = new QPushButton(tr("Create session..."));
+        connect(d->m_btn_create, SIGNAL(clicked()), SLOT(onCreate()));
+        d->m_btn_clone = new QPushButton(tr("Clone session..."));
+        connect(d->m_btn_clone, SIGNAL(clicked()), SLOT(onClone()));
+        d->m_btn_rename = new QPushButton(tr("Rename session..."));
+        connect(d->m_btn_rename, SIGNAL(clicked()), SLOT(onRename()));
+        d->m_btn_delete = new QPushButton(tr("Delete session"));
+        connect(d->m_btn_delete, SIGNAL(clicked()), SLOT(onDelete()));
+        d->m_slview = new QListView;
+        d->m_slview->setModel(d->m_smodel);
+        connect(d->m_slview->selectionModel(), SIGNAL(currentChanged(QModelIndex, QModelIndex)), SLOT(onCurChange(QModelIndex, QModelIndex)));
+        d->m_slview->setCurrentIndex(d->m_smodel->currentSessionIndex());
 
         QDialogButtonBox * dbb = new QDialogButtonBox(Qt::Horizontal, this);
-        dbb->addButton(m_btn_switch, QDialogButtonBox::AcceptRole);
-        dbb->addButton(m_btn_reject, QDialogButtonBox::RejectRole);
-        dbb->addButton(m_btn_create, QDialogButtonBox::ActionRole);
-        dbb->addButton(m_btn_clone, QDialogButtonBox::ActionRole);
-        dbb->addButton(m_btn_rename, QDialogButtonBox::ActionRole);
-        dbb->addButton(m_btn_delete, QDialogButtonBox::ActionRole);
-        m_btn_switch->setDefault(true);
+        dbb->addButton(d->m_btn_switch, QDialogButtonBox::AcceptRole);
+        dbb->addButton(d->m_btn_reject, QDialogButtonBox::RejectRole);
+        dbb->addButton(d->m_btn_create, QDialogButtonBox::ActionRole);
+        dbb->addButton(d->m_btn_clone, QDialogButtonBox::ActionRole);
+        dbb->addButton(d->m_btn_rename, QDialogButtonBox::ActionRole);
+        dbb->addButton(d->m_btn_delete, QDialogButtonBox::ActionRole);
+        d->m_btn_switch->setDefault(true);
 
         QBoxLayout * bl = new QBoxLayout(QBoxLayout::TopToBottom, this);
-        bl->addWidget(m_slview);
+        bl->addWidget(d->m_slview);
         bl->addWidget(dbb);
         setLayout(bl);
 
         setWindowTitle(QCoreApplication::applicationName() + ": Sessions");
 }
-SessionDialog::~SessionDialog() {}
+SessionDialog::~SessionDialog() {
+    delete d;
+}
 
 const char * MSG_INSNAME = "Enter new session name:";
 const char * MSG_NOSOP = "Unable to %1!\nPerhaps this is the name of an existing session.";
 
 void SessionDialog::accept() {
-    if(!m_smodel->selectSession(m_slview->currentIndex())) QMessageBox::critical(this, QCoreApplication::applicationName(), tr("Unable to switch session for an unknown reason!"));
+    if(!d->m_smodel->selectSession(d->m_slview->currentIndex())) QMessageBox::critical(this, QCoreApplication::applicationName(), tr("Unable to switch session for an unknown reason!"));
     QDialog::accept();
 }
 
@@ -171,11 +197,11 @@ void SessionDialog::accept() {
 void SessionDialog::onCreate() {
     QString new_name = QInputDialog::getText(this, QCoreApplication::applicationName(), tr(MSG_INSNAME));
     if(!new_name.isEmpty()) {
-        if(m_smodel->createSession(new_name)) {
-            for(int i = 0; i < m_smodel->rowCount(); i++) {
-                QModelIndex idx = m_smodel->index(i, 0);
-                if(m_smodel->data(idx).toString() == new_name) {
-                    m_slview->setCurrentIndex(idx);
+        if(d->m_smodel->createSession(new_name)) {
+            for(int i = 0; i < d->m_smodel->rowCount(); i++) {
+                QModelIndex idx = d->m_smodel->index(i, 0);
+                if(d->m_smodel->data(idx).toString() == new_name) {
+                    d->m_slview->setCurrentIndex(idx);
                     break;
                 }
             }
@@ -186,11 +212,11 @@ void SessionDialog::onCreate() {
 void SessionDialog::onClone() {
     QString new_name = QInputDialog::getText(this, QCoreApplication::applicationName(), tr(MSG_INSNAME));
     if(!new_name.isEmpty()) {
-        if(m_smodel->createSession(new_name, m_slview->currentIndex())) {
-            for(int i = 0; i < m_smodel->rowCount(); i++) {
-                QModelIndex idx = m_smodel->index(i, 0);
-                if(m_smodel->data(idx).toString() == new_name) {
-                    m_slview->setCurrentIndex(idx);
+        if(d->m_smodel->createSession(new_name, d->m_slview->currentIndex())) {
+            for(int i = 0; i < d->m_smodel->rowCount(); i++) {
+                QModelIndex idx = d->m_smodel->index(i, 0);
+                if(d->m_smodel->data(idx).toString() == new_name) {
+                    d->m_slview->setCurrentIndex(idx);
                     break;
                 }
             }
@@ -201,19 +227,19 @@ void SessionDialog::onClone() {
 void SessionDialog::onRename() {
     QString new_name = QInputDialog::getText(this, QCoreApplication::applicationName(), tr(MSG_INSNAME));
     if(!new_name.isEmpty()) {
-        if(!m_smodel->renameSession(new_name, m_slview->currentIndex())) QMessageBox::critical(this, QCoreApplication::applicationName(), tr(MSG_NOSOP).arg("rename session"));
+        if(!d->m_smodel->renameSession(new_name, d->m_slview->currentIndex())) QMessageBox::critical(this, QCoreApplication::applicationName(), tr(MSG_NOSOP).arg("rename session"));
     }
 }
 
 void SessionDialog::onDelete() {
-    int rc = QMessageBox::question(this, windowTitle(), QString("Are you sure you wish to delete the session <i>%1</i>?").arg(m_smodel->data(m_slview->currentIndex()).toString()), QMessageBox::Yes | QMessageBox::No);
-    if(rc == QMessageBox::Yes) m_smodel->deleteSession(m_slview->currentIndex());
+    int rc = QMessageBox::question(this, windowTitle(), QString("Are you sure you wish to delete the session <i>%1</i>?").arg(d->m_smodel->data(d->m_slview->currentIndex()).toString()), QMessageBox::Yes | QMessageBox::No);
+    if(rc == QMessageBox::Yes) d->m_smodel->deleteSession(d->m_slview->currentIndex());
 }
 
 void SessionDialog::onCurChange(const QModelIndex &current, const QModelIndex &previous) {
-    bool c = m_smodel->isCurrentSession(current);
+    bool c = d->m_smodel->isCurrentSession(current);
 
-    m_btn_switch->setEnabled(current.isValid() && !c);
-    m_btn_delete->setEnabled(current.isValid() && !c);
+    d->m_btn_switch->setEnabled(current.isValid() && !c);
+    d->m_btn_delete->setEnabled(current.isValid() && !c);
 }
 } // namespace Ktws

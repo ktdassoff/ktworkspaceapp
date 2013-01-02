@@ -47,7 +47,7 @@ bool writeWorksheetSettings(const QString &app_id, const QUuid &session_id, cons
 
 // Helpers
 void rm_r(const QString &path);
-void cp_r(const QString &src_path, const QString &dest_path);
+bool cp_r(const QString &src_path, const QString &dest_path);
 } // namespace Ktws
 
 #endif // KTWSSERIALIZATION_P_HPP_

@@ -1,28 +1,23 @@
-#ifndef SessionDialog_HPP
-#define SessionDialog_HPP
+#ifndef KTWSSESSIONDIALOG_HPP_
+#define KTWSSESSIONDIALOG_HPP_
 
 #include <KtwsGlobal.hpp>
-#include "KtwsWorkspace.hpp"
-#include "KtwsSession.hpp"
 
 #include <QDialog>
-#include <QPushButton>
 #include <QAbstractItemModel>
-#include <QStringList>
-#include <QListView>
 
 namespace Ktws {
+class Workspace;
+class Session;
+
+struct SessionModelImpl;
 class SessionModel : public QAbstractItemModel {
     Q_OBJECT
     Q_DISABLE_COPY(SessionModel)
-    QList<Session *> m_sessions;
-    Workspace *m_wspace;
+    SessionModelImpl *d;
 
 public:
-    explicit SessionModel(Workspace *wspace, QObject *parent = 0)
-        : QAbstractItemModel(parent), m_wspace(wspace) {
-            m_sessions = m_wspace->sessions();
-    }
+    explicit SessionModel(Workspace *wspace, QObject *parent = 0);
     virtual ~SessionModel();
 
     virtual QModelIndex index(int row, int column, const QModelIndex &parent = QModelIndex()) const;
@@ -42,18 +37,19 @@ public:
     bool createSession(const QString &new_name, const QModelIndex &src_index = QModelIndex());
     bool deleteSession(const QModelIndex &index);
     bool selectSession(const QModelIndex &index);
+
+private slots:
+    void onSessionTransitioned(Session *session);
 };
 
+struct SessionDialogImpl;
 class SessionDialog : public QDialog {
     Q_OBJECT
     Q_DISABLE_COPY(SessionDialog)
-    QPushButton *m_btn_reject, *m_btn_switch, *m_btn_create, *m_btn_clone, *m_btn_rename, *m_btn_delete;
-    SessionModel *m_smodel;
-    QListView *m_slview;
-    Workspace *m_wspace;
+    SessionDialogImpl *d;
 
 public:
-    explicit SessionDialog(Workspace *wspace, QWidget *parent = 0);
+    explicit SessionDialog(Workspace *wspace, QWidget *parent = nullptr);
     ~SessionDialog();
 
 public slots:
@@ -68,4 +64,4 @@ private slots:
 };
 }
 
-#endif // !define(SessionDialog_HPP)
+#endif // KTWSSESSIONDIALOG_HPP_
