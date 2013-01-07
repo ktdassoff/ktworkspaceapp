@@ -88,7 +88,7 @@ QModelIndex SessionModel::currentSessionIndex() const {
     return QModelIndex();
 }
 bool SessionModel::isCurrentSession(const QModelIndex &index) const {
-    return index.row() < d->m_sessions.count() && d->m_sessions[index.row()]->isCurrent();
+    return index.isValid() && index.row() < d->m_sessions.count() && d->m_sessions[index.row()]->isCurrent();
 }
 
 bool SessionModel::renameSession(const QString &new_name, const QModelIndex &index) {
@@ -162,6 +162,7 @@ SessionDialog::SessionDialog(Workspace *wspace, QWidget *parent)
         d->m_slview->setModel(d->m_smodel);
         connect(d->m_slview->selectionModel(), SIGNAL(currentChanged(QModelIndex, QModelIndex)), SLOT(onCurChange(QModelIndex, QModelIndex)));
         d->m_slview->setCurrentIndex(d->m_smodel->currentSessionIndex());
+        onCurChange(d->m_slview->currentIndex(), QModelIndex());
 
         QDialogButtonBox * dbb = new QDialogButtonBox(Qt::Horizontal, this);
         dbb->addButton(d->m_btn_switch, QDialogButtonBox::AcceptRole);

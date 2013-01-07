@@ -85,6 +85,15 @@ public:
     QString defaultWorksheetClass() const;
     void setDefaultWorksheetClass(const QString &class_name);
 
+    // Convenience function for loading the last used session or, if no session exists
+    //     either creating a default session and loading that or showing the sessions dialog
+    // Returns true if a session was started, false if no session was started
+    //     (e.g. the user canceled the sessions dialog);
+    //     immediately returns true without doing anything if a session is already active
+    // Parameter default specifies the name of the default session to create if needed;
+    //     if empty, the session dialog will be shown instead of creating a default session
+    bool startWorkspace(const QString &default_name = QString("Default"));
+
 public slots:
     void requestQuit();
     void sessionsDialog();

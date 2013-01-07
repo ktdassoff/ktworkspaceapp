@@ -177,6 +177,30 @@ void Workspace::setDefaultWorksheetClass(const QString &class_name) {
     d->m_default_worksheet_class = class_name;
 }
 
+// Convenience function
+bool Workspace::startWorkspace(const QString &default_name) {
+    // Is a session already running?
+    if(d->m_session_status != SessionNone) return true;
+
+    // Find the last used session, if any
+    // lastUsedSession will not return a session if sessions exists but none has a timestamp
+    Session *lu = lastUsedSession();
+    if(lu) return lu->switchTo();
+    // If there's only one session, switch to that
+    else if(sessionCount() == 1) return sessions().first()->switchTo();
+    // If there's more than one session, or no default, show the dialog
+    else if(sessionCount() > 1 || default_name.isEmpty()) {
+        sessionsDialog();
+        // After returning, check if a session was selected
+        return isSessionRunning();
+    } else {
+        // No sessions exist, use the default_name
+        Session *ns = createSession(default_name);
+        if(ns) return ns->switchTo();
+        else return false; /* bad name? */
+    }
+}
+
 //// Public slots ////
 void Workspace::requestQuit() {
     selectSession(QUuid());
@@ -233,16 +257,16 @@ bool Workspace::selectSession(const QUuid &id) {
                     "Unable to open any worksheets!", QMessageBox::Ok);
                 errbox.setInformativeText("No worksheets could be opened, which most likely "
                     "indicates a bug in the application.");
-                QString errnfo("Developer information:<br/><br/>%1, and %2");
+                QString errnfo("Developer information:\n\n%1, and %2");
                 if(wsl.isEmpty()) errnfo = errnfo.arg("There were no saved worksheets");
                 else errnfo = errnfo.arg("The application couldn't load any of the saved "
                     "worksheets, perhaps due to a different version running now");
                 if(d->m_default_worksheet_class.isEmpty()) {
                     errnfo = errnfo.arg("no default worksheet handler was set.");
                 } else errnfo = errnfo.arg("the default worksheet handler was not a registered handler.");
-                errnfo += QString("<br/><br/><b>Default worksheet class:</b> %1").arg(d->m_default_worksheet_class);
-                errnfo += QString("<br/><br/><b>Saved worksheets (as {<i>id</i>}::<i>class</i>):</b><br/>");
-                foreach(const WorksheetMd &md, wsl) errnfo += QString("%1::%2").arg(md.id.toString(), md.class_name);
+                errnfo += QString("\n\nDefault worksheet class: %1").arg(d->m_default_worksheet_class);
+                errnfo += QString("\n\nSaved worksheets (as {id}::class):\n");
+                foreach(const WorksheetMd &md, wsl) errnfo += QString("%1::%2\n").arg(md.id.toString(), md.class_name);
                 errbox.setDetailedText(errnfo);
                 errbox.exec();
             }

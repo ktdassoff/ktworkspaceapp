@@ -35,6 +35,7 @@ protected:
 	Session *session() const;
 
     QSettings *settings();
+    void restoreStateAgain();
 
     virtual void closeEvent(QCloseEvent *event);
     virtual bool confirmClose(bool explicit_close);
