@@ -95,7 +95,7 @@ public:
     bool startWorkspace(const QString &default_name = QString("Default"));
 
 public slots:
-    void requestQuit();
+    void endSession();
     void sessionsDialog();
     void aboutDialog();
 

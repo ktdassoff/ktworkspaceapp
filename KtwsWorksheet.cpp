@@ -22,10 +22,6 @@ Worksheet::Worksheet(const QString &class_name, Workspace *wspace, const QUuid &
     if(cfg->contains("ktws_wgeom")) restoreGeometry(cfg->value("ktws_wgeom").toByteArray());
     if(cfg->contains("ktws_wstate")) setWindowState(Qt::WindowState(cfg->value("ktws_wstate").toInt()));
     if(cfg->contains("ktws_mstate")) restoreState(cfg->value("ktws_mstate").toByteArray());
-
-    delete cfg;
-
-    setAttribute(Qt::WA_DeleteOnClose);
 }
 
 Worksheet::~Worksheet() {
@@ -51,7 +47,6 @@ QSettings *Worksheet::settings() {
 void Worksheet::restoreStateAgain() {
     QSettings *cfg = settings();
     if(cfg->contains("ktws_mstate")) restoreState(cfg->value("ktws_mstate").toByteArray());
-    delete cfg;
 }
 
 void Worksheet::closeEvent(QCloseEvent *event) {
