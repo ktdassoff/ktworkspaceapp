@@ -249,26 +249,9 @@ bool Workspace::selectSession(const QUuid &id) {
         QList<WorksheetMd> wsl = scanWorksheets(d->m_app_id, id);
         foreach(const WorksheetMd &md, wsl) attachWorksheetHelper(md.class_name, md.id);
         if(d->m_worksheet_table.isEmpty()) {
-            // Open a new worksheet with the default handler
+            // Open a new worksheet with the default handler if one is registered
             if(d->m_worksheet_handler_table.contains(d->m_default_worksheet_class)) {
                 attachWorksheetHelper(d->m_default_worksheet_class, QUuid::createUuid());
-            } else {
-                QMessageBox errbox(QMessageBox::Critical, QCoreApplication::applicationName(),
-                    "Unable to open any worksheets!", QMessageBox::Ok);
-                errbox.setInformativeText("No worksheets could be opened, which most likely "
-                    "indicates a bug in the application.");
-                QString errnfo("Developer information:\n\n%1, and %2");
-                if(wsl.isEmpty()) errnfo = errnfo.arg("There were no saved worksheets");
-                else errnfo = errnfo.arg("The application couldn't load any of the saved "
-                    "worksheets, perhaps due to a different version running now");
-                if(d->m_default_worksheet_class.isEmpty()) {
-                    errnfo = errnfo.arg("no default worksheet handler was set.");
-                } else errnfo = errnfo.arg("the default worksheet handler was not a registered handler.");
-                errnfo += QString("\n\nDefault worksheet class: %1").arg(d->m_default_worksheet_class);
-                errnfo += QString("\n\nSaved worksheets (as {id}::class):\n");
-                foreach(const WorksheetMd &md, wsl) errnfo += QString("%1::%2\n").arg(md.id.toString(), md.class_name);
-                errbox.setDetailedText(errnfo);
-                errbox.exec();
             }
         }
         d->m_session_status = SessionRunning;
