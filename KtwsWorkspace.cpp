@@ -155,8 +155,8 @@ QList<Worksheet *> Workspace::worksheets() const { return d->m_worksheet_table.v
 Worksheet *Workspace::worksheetById(const QUuid &id) const { return d->m_worksheet_table.value(id, nullptr); }
 Worksheet *Workspace::createWorksheet(const QString &class_name) {
     Worksheet *ws = attachWorksheetHelper(class_name, QUuid::createUuid());
-    qDebug() << "Ktws::Workspace::createWorksheet: new worksheet of class" << class_name << " with id" << ws->id();
     if(ws) {
+        qDebug() << "Ktws::Workspace::createWorksheet: new worksheet of class" << class_name << " with id" << ws->id();
         WorksheetMd wmd = { ws->id(), ws->className() };
         writeWorksheetMetadata(d->m_app_id, d->m_cur_session_id, wmd);
     } else qWarning() << QString("Unable to create new worksheet for class %1!").arg(class_name);
