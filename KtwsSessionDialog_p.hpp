@@ -5,7 +5,7 @@
 
 #include <QList>
 class QPushButton;
-class QListView;
+class QTreeView;
 
 namespace Ktws {
 class Workspace;
@@ -23,7 +23,7 @@ struct SessionModelImpl {
 struct SessionDialogImpl {
     Workspace *m_wspace;
     SessionModel *m_smodel;
-    QListView *m_slview;
+    QTreeView *m_slview;
     QPushButton *m_btn_reject, *m_btn_switch, *m_btn_create, *m_btn_clone, *m_btn_rename, *m_btn_delete;
 	
 	SessionDialogImpl(Workspace *wspace, SessionModel *smodel)

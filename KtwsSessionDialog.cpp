@@ -5,7 +5,7 @@
 
 #include <QBoxLayout>
 #include <QDialogButtonBox>
-#include <QListView>
+#include <QTreeView>
 #include <QPushButton>
 #include <QInputDialog>
 #include <QMessageBox>
@@ -158,7 +158,13 @@ SessionDialog::SessionDialog(Workspace *wspace, QWidget *parent)
         connect(d->m_btn_rename, SIGNAL(clicked()), SLOT(onRename()));
         d->m_btn_delete = new QPushButton(tr("Delete session"));
         connect(d->m_btn_delete, SIGNAL(clicked()), SLOT(onDelete()));
-        d->m_slview = new QListView;
+        d->m_slview = new QTreeView;
+        d->m_slview->setAllColumnsShowFocus(true);
+        d->m_slview->setIndentation(0);
+        d->m_slview->setItemsExpandable(false);
+        d->m_slview->setUniformRowHeights(true);
+        d->m_slview->setAlternatingRowColors(true);
+        d->m_slview->setDragDropMode(QAbstractItemView::NoDragDrop);
         d->m_slview->setModel(d->m_smodel);
         connect(d->m_slview->selectionModel(), SIGNAL(currentChanged(QModelIndex, QModelIndex)), SLOT(onCurChange(QModelIndex, QModelIndex)));
         d->m_slview->setCurrentIndex(d->m_smodel->currentSessionIndex());
@@ -231,7 +237,8 @@ void SessionDialog::onRename() {
 }
 
 void SessionDialog::onDelete() {
-    int rc = QMessageBox::question(this, windowTitle(), QString("Are you sure you wish to delete the session <i>%1</i>?").arg(d->m_smodel->data(d->m_slview->currentIndex()).toString()), QMessageBox::Yes | QMessageBox::No);
+    int rc = QMessageBox::question(this, windowTitle(), QString("Are you sure you wish to delete the session <i>%1</i>?")
+        .arg(d->m_smodel->data(d->m_smodel->index(d->m_slview->currentIndex().row(), 0)).toString()), QMessageBox::Yes | QMessageBox::No);
     if(rc == QMessageBox::Yes) d->m_smodel->deleteSession(d->m_slview->currentIndex());
 }
 

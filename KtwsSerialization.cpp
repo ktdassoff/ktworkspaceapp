@@ -1,6 +1,7 @@
 #include "KtwsSerialization_p.hpp"
 
 #include <QFile>
+#include <QDebug>
 
 namespace Ktws {
 // Constants
@@ -32,15 +33,25 @@ QString getSessionDataDir(const QString &app_id, const QUuid &session_id) {
 }
 
 QList<SessionMd> scanSessions(const QString &app_id) {
+    qDebug() << "Ktws::scanSessions: for app_id:" << app_id << "; settings file is:" << getGlobalSettingsFile(app_id);
     QSettings mcfg(getGlobalSettingsFile(app_id), QSettings::IniFormat);
     QList<SessionMd> lmd;
     mcfg.beginGroup(SG_SESSIONS);
+    qDebug() << ">>> Listing in group" << mcfg.group();
     QStringList sg = mcfg.childGroups();
-    foreach(const QString &s, sg) lmd.append(readSessionMetadata(app_id, QUuid(s)));
+    qDebug() << ">>> Found child groups:" << sg;
+    foreach(const QString &s, sg) {
+        QUuid sid = QUuid(s);
+        if(!sid.isNull()) {
+            SessionMd smd = readSessionMetadata(app_id, sid);
+            if(!smd.id.isNull()) lmd.append(smd);
+        }
+    }
     mcfg.endGroup();
     return lmd;
 }
 SessionMd readSessionMetadata(const QString &app_id, const QUuid &session_id) {
+    qDebug() << "Ktws::readSessionMetadata for app_id:" << app_id << "; session_id:" << session_id;
     QSettings mcfg(getGlobalSettingsFile(app_id), QSettings::IniFormat);
     SessionMd smd;
     mcfg.beginGroup(SG_SESSIONS);
@@ -50,13 +61,15 @@ SessionMd readSessionMetadata(const QString &app_id, const QUuid &session_id) {
         smd.name = mcfg.value("name").toString();
         smd.timestamp = mcfg.value("timestamp").toDateTime();
         mcfg.endGroup();
-    }
+        qDebug() << ">>> Found with name:" << smd.name << "; timestamp:" << smd.timestamp;
+    } else qDebug() << ">>> Not found";
     mcfg.endGroup();
     return smd;
 }
 void writeSessionMetadata(const QString &app_id, const SessionMd &md) {
     QSettings mcfg(getGlobalSettingsFile(app_id), QSettings::IniFormat);
     mcfg.beginGroup(SG_SESSIONS);
+    mcfg.setValue(md.id.toString(), QVariant());
     mcfg.beginGroup(md.id.toString());
     mcfg.setValue("name", md.name);
     mcfg.setValue("timestamp", md.timestamp);
@@ -76,17 +89,27 @@ void deleteSession(const QString &app_id, const QUuid &session_id) {
 
 // Worksheet settings and metadata
 QList<WorksheetMd> scanWorksheets(const QString &app_id, const QUuid &session_id) {
-    QSettings mcfg(getSessionSettingsFile(app_id, session_id));
+    qDebug() << "Ktws::scanWorksheets: app_id" << app_id << "session_id" << session_id << "; using settings file" << getSessionSettingsFile(app_id, session_id);
+    QSettings mcfg(getSessionSettingsFile(app_id, session_id), QSettings::IniFormat);
     QList<WorksheetMd> lmd;
     mcfg.beginGroup(SG_WORKSHEETS);
+    qDebug() << ">>> In group" << mcfg.group();
     QStringList sg = mcfg.childGroups();
-    foreach(const QString &s, sg) lmd.append(readWorksheetMetadata(app_id, session_id, QUuid(s)));
+    qDebug() << ">>> Found child groups" << sg;
+    foreach(const QString &s, sg) {
+        QUuid wid = QUuid(s);
+        if(!wid.isNull()) {
+            WorksheetMd wmd = readWorksheetMetadata(app_id, session_id, wid);
+            if(!wmd.id.isNull()) lmd.append(wmd);
+        }
+    }
     mcfg.endGroup();
     return lmd;
 }
 
 WorksheetMd readWorksheetMetadata(const QString &app_id, const QUuid &session_id, const QUuid &worksheet_id) {
-    QSettings mcfg(getSessionSettingsFile(app_id, session_id));
+    qDebug() << "Ktws::readWorksheetMetadata: app_id" << app_id << "session_id" << session_id << "worksheet_id" << worksheet_id;
+    QSettings mcfg(getSessionSettingsFile(app_id, session_id), QSettings::IniFormat);
     WorksheetMd wmd;
     mcfg.beginGroup(SG_WORKSHEETS);
     if(mcfg.contains(worksheet_id.toString())) {
@@ -94,13 +117,15 @@ WorksheetMd readWorksheetMetadata(const QString &app_id, const QUuid &session_id
         wmd.id = worksheet_id;
         wmd.class_name = mcfg.value("class_name").toString();
         mcfg.endGroup();
-    }
+        qDebug() << ">>> Found with class_name" << wmd.class_name;
+    } else qDebug() << ">>> Not found";
     mcfg.endGroup();
     return wmd;
 }
 void writeWorksheetMetadata(const QString &app_id, const QUuid &session_id, const WorksheetMd &md) {
-    QSettings mcfg(getSessionSettingsFile(app_id, session_id));
+    QSettings mcfg(getSessionSettingsFile(app_id, session_id), QSettings::IniFormat);
     mcfg.beginGroup(SG_WORKSHEETS);
+    mcfg.setValue(md.id.toString(), QVariant());
     mcfg.beginGroup(md.id.toString());
     mcfg.setValue("class_name", md.class_name);
     mcfg.endGroup();
@@ -111,7 +136,7 @@ void deleteWorksheet(const QString &app_id, const QUuid &session_id, const QUuid
     QFile::remove(getWorksheetSettingsFile(app_id, session_id, worksheet_id));
 
     // Remove worksheet metadata
-    QSettings mcfg(getSessionSettingsFile(app_id, session_id));
+    QSettings mcfg(getSessionSettingsFile(app_id, session_id), QSettings::IniFormat);
     mcfg.beginGroup(SG_WORKSHEETS);
     mcfg.remove(worksheet_id.toString());
     mcfg.endGroup();

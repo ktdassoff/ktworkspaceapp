@@ -14,15 +14,7 @@ namespace Ktws {
 Worksheet::Worksheet(const QString &class_name, Workspace *wspace, const QUuid &wsheet_id, QWidget *parent)
     : QMainWindow(parent),
       d(new WorksheetImpl(class_name, wspace, wspace->currentSession(), wsheet_id))
-{
-	// Read in stored settings
-    QSettings *cfg = settings();
-
-    // Restore any window state
-    if(cfg->contains("ktws_wgeom")) restoreGeometry(cfg->value("ktws_wgeom").toByteArray());
-    if(cfg->contains("ktws_wstate")) setWindowState(Qt::WindowState(cfg->value("ktws_wstate").toInt()));
-    if(cfg->contains("ktws_mstate")) restoreState(cfg->value("ktws_mstate").toByteArray());
-}
+{}
 
 Worksheet::~Worksheet() {
     delete d;
@@ -38,14 +30,19 @@ Session *Worksheet::session() const {
 
 QSettings *Worksheet::settings() {
     if(!d->m_settings) {
-        d->m_settings = openSessionSettings(d->m_wspace->appId(), d->m_wsheet_id);
+        d->m_settings = openWorksheetSettings(d->m_wspace->appId(), d->m_session->id(), d->m_wsheet_id);
         d->m_settings->setParent(this);
     }
     return d->m_settings;
 }
 
-void Worksheet::restoreStateAgain() {
+void Worksheet::restoreWorksheetState() {
+	// Read in stored settings
     QSettings *cfg = settings();
+
+    // Restore any window state
+    if(cfg->contains("ktws_wgeom")) restoreGeometry(cfg->value("ktws_wgeom").toByteArray());
+    if(cfg->contains("ktws_wstate")) setWindowState(Qt::WindowState(cfg->value("ktws_wstate").toInt()));
     if(cfg->contains("ktws_mstate")) restoreState(cfg->value("ktws_mstate").toByteArray());
 }
 
@@ -58,6 +55,7 @@ void Worksheet::closeEvent(QCloseEvent *event) {
             QSettings *cfg = settings();
     	    cfg->setValue("ktws_wgeom", saveGeometry());
     	    cfg->setValue("ktws_wstate", int(windowState()));
+            cfg->setValue("ktws_mstate", saveState());
             cfg->sync();
         } else deleteWorksheet(d->m_wspace->appId(), d->m_session->id(), d->m_wsheet_id);
 

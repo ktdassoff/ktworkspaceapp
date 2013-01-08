@@ -15,6 +15,7 @@ class KTWORKSPACEAPP_EXPORT Worksheet : public QMainWindow {
     Q_DISABLE_COPY(Worksheet)
 
     WorksheetImpl *d;
+    friend class WorksheetHandler;
 
     Q_PROPERTY(QString className READ className CONSTANT)
     Q_PROPERTY(QUuid id READ id CONSTANT)
@@ -35,7 +36,7 @@ protected:
 	Session *session() const;
 
     QSettings *settings();
-    void restoreStateAgain();
+    void restoreWorksheetState();
 
     virtual void closeEvent(QCloseEvent *event);
     virtual bool confirmClose(bool explicit_close);

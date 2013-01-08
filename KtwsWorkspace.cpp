@@ -51,6 +51,7 @@ Workspace::Workspace(const QString &app_id, QObject *parent)
         Session *ns = new Session(smd.id, this, this);
         ns->setName(smd.name);
         ns->setLastUsedTimestamp(smd.timestamp);
+        d->m_session_table.insert(smd.id, ns);
     }
 }
 Workspace::~Workspace() { delete d; }
@@ -267,6 +268,11 @@ bool Workspace::selectSession(const QUuid &id) {
         d->m_session_status = SessionStarting;
         qDebug() << ">>> Starting session" << ss->id();
         emit sessionAboutToStart(ss);
+
+        // Update timestamp
+        ss->setLastUsedTimestamp(QDateTime::currentDateTimeUtc());
+        SessionMd smd = { ss->id(), ss->name(), ss->lastUsedTimestamp() };
+        writeSessionMetadata(d->m_app_id, smd);
 
         // Restore worksheets
         QList<WorksheetMd> wsl = scanWorksheets(d->m_app_id, id);
